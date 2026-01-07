@@ -49,6 +49,63 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed system design.
 - **Cargo** package manager
 - **Git** for cloning the repository
 
+### Voice Chat Prerequisites
+
+To run the voice chat dataflow, you need to set up the Python environment and download the required AI models.
+
+#### 1. Environment Setup
+
+```bash
+cd models/setup-local-models
+./setup_isolated_env.sh
+```
+
+This creates a conda environment `dora_voice_chat` with:
+- Python 3.12
+- PyTorch 2.2.0, NumPy 1.26.4, Transformers 4.45.0
+- All voice-chat Python nodes (ASR, PrimeSpeech, Text Segmenter)
+
+Activate the environment:
+
+```bash
+conda activate dora_voice_chat
+python test_dependencies.py  # Verify installation
+```
+
+#### 2. Model Downloads
+
+```bash
+cd models/model-manager
+
+# ASR models (FunASR Paraformer + punctuation)
+python download_models.py --download funasr
+
+# PrimeSpeech TTS (base + voices)
+python download_models.py --download primespeech
+
+# List available voices
+python download_models.py --list-voices
+
+# Download specific voice
+python download_models.py --voice "Luo Xiang"
+```
+
+Models are stored in:
+| Location | Contents |
+|----------|----------|
+| `~/.dora/models/asr/funasr/` | FunASR ASR models |
+| `~/.dora/models/primespeech/` | PrimeSpeech TTS base + voices |
+
+#### 3. API Keys (Optional)
+
+For LLM inference, set your API keys in the MoFA Settings app or via environment variables:
+
+```bash
+export OPENAI_API_KEY="your-key"
+export DEEPSEEK_API_KEY="your-key"
+export ALIBABA_CLOUD_API_KEY="your-key"
+```
+
 ### Build & Run
 
 ```bash
