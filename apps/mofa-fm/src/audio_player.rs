@@ -9,17 +9,19 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-/// Segment tracking for knowing which participant owns audio in the buffer
+/// Segment tracking for knowing which participant and question owns audio in the buffer
 #[derive(Clone, Debug)]
 struct AudioSegment {
     participant_id: Option<String>,
+    question_id: Option<String>,
     samples_remaining: usize,
 }
 
 /// Commands sent to the audio thread
 enum AudioCommand {
-    Write(Vec<f32>, Option<String>), // samples, participant_id
+    Write(Vec<f32>, Option<String>, Option<String>), // samples, participant_id, question_id
     Reset,
+    SmartReset(String), // Keep only segments with this question_id
     Pause,
     Resume,
     Stop,
@@ -50,7 +52,7 @@ impl CircularAudioBuffer {
         }
     }
 
-    fn write_with_participant(&mut self, samples: &[f32], participant_id: Option<String>) -> usize {
+    fn write_with_participant(&mut self, samples: &[f32], participant_id: Option<String>, question_id: Option<String>) -> usize {
         let mut written = 0;
         for &sample in samples {
             if self.available_samples < self.buffer_size {
@@ -76,18 +78,21 @@ impl CircularAudioBuffer {
         }
 
         if written > 0 {
+            // Try to merge with last segment if same participant AND question
             if let Some(last) = self.segments.back_mut() {
-                if last.participant_id == participant_id {
+                if last.participant_id == participant_id && last.question_id == question_id {
                     last.samples_remaining += written;
                 } else {
                     self.segments.push_back(AudioSegment {
                         participant_id,
+                        question_id,
                         samples_remaining: written,
                     });
                 }
             } else {
                 self.segments.push_back(AudioSegment {
                     participant_id,
+                    question_id,
                     samples_remaining: written,
                 });
             }
@@ -139,6 +144,45 @@ impl CircularAudioBuffer {
         self.available_samples = 0;
         self.segments.clear();
         self.current_playing_participant = None;
+    }
+
+    /// Smart reset - only keep segments with the specified question_id
+    /// This prevents playing stale audio from previous questions after a reset
+    fn smart_reset(&mut self, active_question_id: &str) {
+        // Count samples to discard (segments with wrong question_id)
+        let mut samples_to_discard = 0;
+        let mut new_segments = VecDeque::new();
+
+        for segment in &self.segments {
+            if let Some(ref qid) = segment.question_id {
+                if qid == active_question_id {
+                    new_segments.push_back(segment.clone());
+                } else {
+                    samples_to_discard += segment.samples_remaining;
+                }
+            } else {
+                // Segments without question_id are discarded
+                samples_to_discard += segment.samples_remaining;
+            }
+        }
+
+        if samples_to_discard > 0 {
+            log::info!(
+                "Smart reset: discarding {} samples from stale questions, keeping {} segments for question_id={}",
+                samples_to_discard,
+                new_segments.len(),
+                active_question_id
+            );
+
+            // Advance read position past discarded samples
+            self.read_pos = (self.read_pos + samples_to_discard) % self.buffer_size;
+            self.available_samples = self.available_samples.saturating_sub(samples_to_discard);
+            self.segments = new_segments;
+
+            // Update current participant from remaining segments
+            self.current_playing_participant = self.segments.front()
+                .and_then(|s| s.participant_id.clone());
+        }
     }
 
     fn available(&self) -> usize {
@@ -195,7 +239,14 @@ impl AudioPlayer {
     pub fn write_audio(&self, samples: &[f32], participant_id: Option<String>) {
         let _ = self
             .command_tx
-            .send(AudioCommand::Write(samples.to_vec(), participant_id));
+            .send(AudioCommand::Write(samples.to_vec(), participant_id, None));
+    }
+
+    /// Add audio samples to the buffer with question_id for smart reset support
+    pub fn write_audio_with_question(&self, samples: &[f32], participant_id: Option<String>, question_id: Option<String>) {
+        let _ = self
+            .command_tx
+            .send(AudioCommand::Write(samples.to_vec(), participant_id, question_id));
     }
 
     /// Get buffer fill percentage
@@ -231,6 +282,12 @@ impl AudioPlayer {
     /// Reset the buffer
     pub fn reset(&self) {
         let _ = self.command_tx.send(AudioCommand::Reset);
+    }
+
+    /// Smart reset - keep only audio for the specified question_id
+    /// Use this after receiving a new question to discard stale audio
+    pub fn smart_reset(&self, question_id: &str) {
+        let _ = self.command_tx.send(AudioCommand::SmartReset(question_id.to_string()));
     }
 
     /// Get sample rate
@@ -347,9 +404,9 @@ fn run_audio_thread(
 
     loop {
         match command_rx.try_recv() {
-            Ok(AudioCommand::Write(samples, participant_id)) => {
+            Ok(AudioCommand::Write(samples, participant_id, question_id)) => {
                 let mut buf = buffer.lock();
-                buf.write_with_participant(&samples, participant_id);
+                buf.write_with_participant(&samples, participant_id, question_id);
 
                 // Start playing if we have enough audio
                 if buf.available() > sample_rate as usize / 10 {
@@ -360,6 +417,10 @@ fn run_audio_thread(
                 is_playing.store(false, Ordering::Relaxed);
                 buffer.lock().reset();
                 log::info!("Audio buffer reset");
+            }
+            Ok(AudioCommand::SmartReset(question_id)) => {
+                buffer.lock().smart_reset(&question_id);
+                log::info!("Audio buffer smart reset for question_id={}", question_id);
             }
             Ok(AudioCommand::Pause) => {
                 is_playing.store(false, Ordering::Relaxed);

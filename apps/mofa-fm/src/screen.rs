@@ -1831,9 +1831,13 @@ impl MoFaFMScreen {
                     self.add_log(cx, &log_line);
                 }
                 DoraEvent::AudioReceived { data } => {
-                    // Forward to audio player for playback
+                    // Forward to audio player for playback with question_id for smart reset
                     if let Some(ref player) = self.audio_player {
-                        player.write_audio(&data.samples, data.participant_id.clone());
+                        player.write_audio_with_question(
+                            &data.samples,
+                            data.participant_id.clone(),
+                            data.question_id.clone(),
+                        );
                     }
                 }
                 // NOTE: ParticipantAudioReceived removed - LED visualization calculated below

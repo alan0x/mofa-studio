@@ -33,6 +33,7 @@ impl DoraData {
             sample_rate,
             channels,
             participant_id: None,
+            question_id: None,
         })
     }
 
@@ -72,6 +73,8 @@ pub struct AudioData {
     pub channels: u16,
     /// Optional participant ID for multi-speaker scenarios
     pub participant_id: Option<String>,
+    /// Optional question ID for smart reset (discard stale audio)
+    pub question_id: Option<String>,
 }
 
 impl AudioData {

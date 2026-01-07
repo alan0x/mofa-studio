@@ -258,8 +258,12 @@ impl AudioPlayerBridge {
 
                         // IMPORTANT: Override participant_id from input_id (more reliable than metadata)
                         // input_id is "audio_student1" -> participant_id is "student1"
+                        // Also ensure question_id is set for smart reset support
                         let mut audio_data_with_participant = audio_data.clone();
                         audio_data_with_participant.participant_id = Some(participant_id.clone());
+                        if let Some(qid) = question_id {
+                            audio_data_with_participant.question_id = Some(qid.to_string());
+                        }
 
                         // Use try_send() to avoid blocking if channel is full
                         // Blocking here would prevent session_start/audio_complete from being sent
@@ -468,12 +472,14 @@ impl AudioPlayerBridge {
             .unwrap_or(32000);
 
         let participant_id = metadata.participant_id().map(|s| s.to_string());
+        let question_id = metadata.get("question_id").map(|s| s.to_string());
 
         Some(AudioData {
             samples,
             sample_rate,
             channels: 1,
             participant_id,
+            question_id,
         })
     }
 
