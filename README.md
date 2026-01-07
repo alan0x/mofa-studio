@@ -1,123 +1,236 @@
-# Dora Common Utilities
+# MoFA Studio
 
-Shared utilities for Dora nodes to ensure consistent logging and status reporting across all components.
+> AI-powered desktop voice chat application built with Rust and Makepad
 
-## Features
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-2021-orange.svg)](https://www.rust-lang.org)
 
-- **Consistent Logging**: Standardized logging function with configurable log levels
-- **Status Reporting**: Common status output format
-- **Environment Integration**: Automatic log level detection from environment variables
+MoFA Studio is a modern, GPU-accelerated desktop application for AI voice chat and model management. Built entirely in Rust using the [Makepad](https://github.com/makepad/makepad) UI framework, it provides a beautiful, responsive interface with native performance.
 
-## Installation
+![MoFA Studio](mofa-studio-shell/resources/mofa-logo.png)
+
+## ✨ Features
+
+- **🎨 Beautiful UI** - GPU-accelerated rendering with smooth animations
+- **🌓 Dark Mode** - Seamless light/dark theme switching with animated transitions
+- **🎙️ Audio Management** - Real-time microphone monitoring and device selection
+- **🔌 Modular Architecture** - Plugin-based app system for extensibility
+- **⚙️ Provider Configuration** - Manage multiple AI service providers (OpenAI, DeepSeek, Alibaba Cloud)
+- **📊 Real-time Metrics** - CPU, memory, and audio buffer monitoring
+- **🚀 Native Performance** - Built with Rust for maximum efficiency
+
+## 🏗️ Architecture
+
+MoFA Studio uses a modular workspace structure:
+
+```
+mofa-studio/
+├── mofa-studio-shell/      # Main application shell
+├── mofa-widgets/           # Shared reusable widgets
+└── apps/
+    ├── mofa-fm/            # Voice chat interface
+    └── mofa-settings/      # Provider configuration
+```
+
+### Key Design Principles
+
+- **Plugin System** - Apps implement the `MofaApp` trait for standardized integration
+- **Black-Box Apps** - Apps are self-contained with no shell coupling
+- **Theme System** - Centralized color and font management
+- **Makepad Native** - Leverages Makepad's GPU-accelerated immediate-mode UI
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed system design.
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- **Rust** 1.70+ (2021 edition)
+- **Cargo** package manager
+- **Git** for cloning the repository
+
+### Build & Run
 
 ```bash
-cd node-hub/dora-common
-pip install -e .
+# Clone the repository
+git clone https://github.com/YOUR_ORG/mofa-studio.git
+cd mofa-studio
+
+# Build in release mode
+cargo build --release
+
+# Run the application
+cargo run --release
 ```
 
-## Usage
+The application window will open at 1400x900 pixels by default.
 
-### Basic Logging
+### Development Build
 
-```python
-from dora_common.logging import send_log, get_log_level_from_env
-
-# Get log level from environment (LOG_LEVEL env var, defaults to INFO)
-log_level = get_log_level_from_env()
-
-# Send log messages
-send_log(node, "INFO", "Node started successfully", "my-node")
-send_log(node, "DEBUG", "Processing input data", "my-node", log_level)
-send_log(node, "WARNING", "Input queue is nearly full", "my-node")
-send_log(node, "ERROR", "Failed to process input", "my-node")
-```
-
-### Status Reporting
-
-```python
-from dora_common.logging import send_status
-
-# Send status updates with optional metadata
-send_status(node, "ready", {"queue_size": 10, "processing_rate": 5.0})
-send_status(node, "processing", {"current_item": "audio_data.wav"})
-send_status(node, "error", {"error_code": 500, "error_message": "Connection failed"})
-```
-
-### Environment Variables
-
-- `LOG_LEVEL`: Set minimum log level (DEBUG, INFO, WARNING, ERROR). Defaults to `INFO`.
-
-Example:
 ```bash
-export LOG_LEVEL=DEBUG
-python my_dora_node.py
+# Fast debug build
+cargo build
+
+# Run with debug logging
+RUST_LOG=debug cargo run
 ```
 
-## Functions
+### Build App-Specific Dataflow
 
-### `send_log(node, level, message, node_name=None, config_level="INFO")`
+MoFA Studio uses [Dora](https://github.com/dora-rs/dora) for voice chat dataflow orchestration. Each app can have its own dataflow configuration.
 
-Send log message through the log output channel.
+```bash
+# Navigate to app's dataflow directory
+cd apps/mofa-fm/dataflow
 
-**Parameters:**
-- `node`: Dora node instance
-- `level`: Log level ("DEBUG", "INFO", "WARNING", "ERROR")
-- `message`: Log message
-- `node_name`: Name of the node (auto-detected if not provided)
-- `config_level`: Minimum log level to output (default: "INFO")
+# Build all nodes (Rust and Python)
+dora build voice-chat.yml
 
-### `send_status(node, status, details=None, node_name=None)`
+# Start the dataflow
+dora start voice-chat.yml
 
-Send status message through the status output channel.
+# Check running dataflows
+dora list
 
-**Parameters:**
-- `node`: Dora node instance
-- `status`: Status message
-- `details`: Additional status details as metadata (optional)
-- `node_name`: Name of the node (auto-detected if not provided)
-
-### `get_log_level_from_env(env_var="LOG_LEVEL", default="INFO")`
-
-Get log level from environment variable.
-
-**Parameters:**
-- `env_var`: Environment variable name (default: "LOG_LEVEL")
-- `default`: Default log level (default: "INFO")
-
-**Returns:** Log level string
-
-## Migration Guide
-
-To migrate existing nodes to use the common logging:
-
-1. Replace local `send_log` function:
-```python
-# Old
-from dora import Node
-import pyarrow as pa
-
-def send_log(node, level, message, config_level="INFO"):
-    # ... local implementation
-
-# New
-from dora import Node
-from dora_common.logging import send_log, get_log_level_from_env
+# Stop dataflow
+dora stop <dataflow-id>
 ```
 
-2. Update log calls:
-```python
-# Old
-send_log(node, "INFO", "Processing complete", "INFO")
+The `node-hub/` directory contains all Dora nodes used by the dataflows:
 
-# New
-log_level = get_log_level_from_env()
-send_log(node, "INFO", "Processing complete", "my-node", log_level)
+| Node | Type | Description |
+|------|------|-------------|
+| `dora-maas-client` | Rust | LLM inference via MaaS APIs |
+| `dora-conference-bridge` | Rust | Text routing between participants |
+| `dora-conference-controller` | Rust | Turn-taking and policy management |
+| `dora-primespeech` | Python | TTS synthesis with multiple voices |
+| `dora-text-segmenter` | Python | Text segmentation for TTS |
+| `dora-asr` | Python | Speech recognition (Whisper/FunASR) |
+| `dora-common` | Python | Shared logging utilities |
+
+## 📦 Project Structure
+
+MoFA Studio is organized as a Cargo workspace with 5 crates:
+
+| Crate | Type | Description |
+|-------|------|-------------|
+| `mofa-studio-shell` | Binary | Main application shell with window chrome and navigation |
+| `mofa-widgets` | Library | Shared UI components (theme, audio player, waveforms, etc.) |
+| `mofa-fm` | Library | Voice chat interface app |
+| `mofa-settings` | Library | Provider configuration app |
+
+### Key Files
+
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Complete system architecture guide
+- **[APP_DEVELOPMENT_GUIDE.md](APP_DEVELOPMENT_GUIDE.md)** - How to create new apps
+- **[STATE_MANAGEMENT_ANALYSIS.md](STATE_MANAGEMENT_ANALYSIS.md)** - State management patterns
+- **[CHECKLIST.md](CHECKLIST.md)** - Refactoring roadmap and completion status
+
+## 🎯 Current Status
+
+MoFA Studio is currently a **UI prototype** with working components:
+
+### ✅ Implemented
+- Full UI navigation and theming
+- Audio device selection and monitoring
+- Provider configuration persistence
+- Dark/light mode with animations
+- Plugin app system
+
+### 🚧 Planned
+- WebSocket client for AI service integration
+- Live ASR (speech recognition) integration
+- Live TTS (text-to-speech) integration
+- LLM chat completion
+- Real-time conversation flow
+
+## 🛠️ Creating a New App
+
+MoFA Studio's plugin system makes it easy to add new functionality:
+
+```rust
+// 1. Implement the MofaApp trait
+impl MofaApp for MyApp {
+    fn info() -> AppInfo {
+        AppInfo {
+            name: "My App",
+            id: "my-app",
+            description: "My custom app"
+        }
+    }
+
+    fn live_design(cx: &mut Cx) {
+        screen::live_design(cx);
+    }
+}
+
+// 2. Create your screen widget
+live_design! {
+    pub MyAppScreen = {{MyAppScreen}} {
+        width: Fill, height: Fill
+        // Your UI here
+    }
+}
 ```
 
-## Benefits
+See [APP_DEVELOPMENT_GUIDE.md](APP_DEVELOPMENT_GUIDE.md) for step-by-step instructions.
 
-- **Consistency**: All nodes use the same logging format
-- **Maintainability**: Single source of truth for logging logic
-- **Flexibility**: Easy to add new logging features
-- **Environment Integration**: Automatic log level configuration
-- **Fallback Support**: Graceful fallback to print() if logging fails
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | System architecture, widget hierarchy, best practices |
+| [APP_DEVELOPMENT_GUIDE.md](APP_DEVELOPMENT_GUIDE.md) | Creating apps, plugin system, dark mode support |
+| [STATE_MANAGEMENT_ANALYSIS.md](STATE_MANAGEMENT_ANALYSIS.md) | Why Redux/Zustand don't work in Makepad |
+| [CHECKLIST.md](CHECKLIST.md) | P0-P3 refactoring roadmap (all complete) |
+
+## 🔧 Technology Stack
+
+- **[Rust](https://www.rust-lang.org/)** - Systems programming language
+- **[Makepad](https://github.com/makepad/makepad)** - GPU-accelerated UI framework
+- **[CPAL](https://github.com/RustAudio/cpal)** - Cross-platform audio I/O
+- **[Tokio](https://tokio.rs/)** - Async runtime
+- **[Serde](https://serde.rs/)** - Serialization framework
+
+## 🤝 Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+### Development Setup
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Test thoroughly (`cargo test`, `cargo build`)
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+## 📝 License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+```
+Copyright 2026 MoFA Studio Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+```
+
+## 🙏 Acknowledgments
+
+- **[Makepad](https://github.com/makepad/makepad)** - For the incredible GPU-accelerated UI framework
+- **[Dora Robotics Framework](https://github.com/dora-rs/dora)** - Original inspiration for voice chat architecture
+- **Rust Community** - For excellent tooling and libraries
+
+## 📧 Contact
+
+- **Repository**: https://github.com/YOUR_ORG/mofa-studio
+- **Issues**: https://github.com/YOUR_ORG/mofa-studio/issues
+
+---
+
+*Built with ❤️ using Rust and Makepad*
