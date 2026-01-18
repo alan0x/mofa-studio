@@ -16,6 +16,7 @@ use mofa_fm::{MoFaFMApp, MoFaFMScreenWidgetRefExt};
 use mofa_settings::data::Preferences;
 use mofa_settings::screen::SettingsScreenWidgetRefExt;
 use mofa_settings::MoFaSettingsApp;
+use mofa_tts::{MoFaTTSApp, TTSScreenWidgetRefExt};
 use mofa_widgets::{AppRegistry, MofaApp, TimerControl};
 
 // ============================================================================
@@ -304,6 +305,7 @@ impl LiveHook for App {
         self.app_registry.register(MoFaFMApp::info());
         self.app_registry.register(MoFaSettingsApp::info());
         self.app_registry.register(MoFaDebateApp::info());
+        self.app_registry.register(MoFaTTSApp::info());
 
         // Load user preferences and restore dark mode
         let prefs = Preferences::load();
@@ -352,6 +354,7 @@ impl LiveRegister for App {
         <MoFaFMApp as MofaApp>::live_design(cx);
         <MoFaSettingsApp as MofaApp>::live_design(cx);
         <MoFaDebateApp as MofaApp>::live_design(cx);
+        <MoFaTTSApp as MofaApp>::live_design(cx);
 
         // Shell widgets (order matters - tabs before dashboard, apps before dashboard)
         mofa_studio_shell::widgets::sidebar::live_design(cx);
@@ -744,6 +747,16 @@ impl App {
                         .content_area
                         .main_content
                         .content
+                        .tts_page
+                ))
+                .apply_over(cx, live! { visible: false });
+            self.ui
+                .view(ids!(
+                    body.dashboard_wrapper
+                        .dashboard_base
+                        .content_area
+                        .main_content
+                        .content
                         .app_page
                 ))
                 .apply_over(cx, live! { visible: false });
@@ -834,6 +847,16 @@ impl App {
                         .content_area
                         .main_content
                         .content
+                        .tts_page
+                ))
+                .apply_over(cx, live! { visible: false });
+            self.ui
+                .view(ids!(
+                    body.dashboard_wrapper
+                        .dashboard_base
+                        .content_area
+                        .main_content
+                        .content
                         .app_page
                 ))
                 .apply_over(cx, live! { visible: false });
@@ -858,6 +881,106 @@ impl App {
                         .debate_page
                 ))
                 .start_timers(cx);
+            self.ui.redraw(cx);
+        }
+
+        // TTS tab (overlay or pinned)
+        let tts_clicked = self
+            .ui
+            .button(ids!(
+                sidebar_menu_overlay.sidebar_content.main_content.tts_tab
+            ))
+            .clicked(actions)
+            || self
+                .ui
+                .button(ids!(
+                    pinned_sidebar
+                        .pinned_sidebar_content
+                        .main_content
+                        .tts_tab
+                ))
+                .clicked(actions);
+
+        if tts_clicked {
+            // Close overlay if open
+            if self.sidebar_menu_open {
+                self.sidebar_menu_open = false;
+                self.start_sidebar_slide_out(cx);
+            }
+            self.open_tabs.clear();
+            self.active_tab = None;
+            self.ui.view(ids!(body.tab_overlay)).set_visible(cx, false);
+            // Stop FM and Debate timers when leaving their pages
+            self.ui
+                .mo_fa_fmscreen(ids!(
+                    body.dashboard_wrapper
+                        .dashboard_base
+                        .content_area
+                        .main_content
+                        .content
+                        .fm_page
+                ))
+                .stop_timers(cx);
+            self.ui
+                .mo_fa_debate_screen(ids!(
+                    body.dashboard_wrapper
+                        .dashboard_base
+                        .content_area
+                        .main_content
+                        .content
+                        .debate_page
+                ))
+                .stop_timers(cx);
+            self.ui
+                .view(ids!(
+                    body.dashboard_wrapper
+                        .dashboard_base
+                        .content_area
+                        .main_content
+                        .content
+                        .fm_page
+                ))
+                .apply_over(cx, live! { visible: false });
+            self.ui
+                .view(ids!(
+                    body.dashboard_wrapper
+                        .dashboard_base
+                        .content_area
+                        .main_content
+                        .content
+                        .debate_page
+                ))
+                .apply_over(cx, live! { visible: false });
+            self.ui
+                .view(ids!(
+                    body.dashboard_wrapper
+                        .dashboard_base
+                        .content_area
+                        .main_content
+                        .content
+                        .tts_page
+                ))
+                .apply_over(cx, live! { visible: true });
+            self.ui
+                .view(ids!(
+                    body.dashboard_wrapper
+                        .dashboard_base
+                        .content_area
+                        .main_content
+                        .content
+                        .app_page
+                ))
+                .apply_over(cx, live! { visible: false });
+            self.ui
+                .view(ids!(
+                    body.dashboard_wrapper
+                        .dashboard_base
+                        .content_area
+                        .main_content
+                        .content
+                        .settings_page
+                ))
+                .apply_over(cx, live! { visible: false });
             self.ui.redraw(cx);
         }
 

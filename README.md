@@ -63,6 +63,7 @@ cd models/setup-local-models
 ```
 
 This creates a conda environment `mofa-studio` with:
+
 - Python 3.12
 - PyTorch 2.2.0, NumPy 1.26.4, Transformers 4.45.0
 
@@ -76,6 +77,7 @@ conda activate mofa-studio
 ```
 
 This installs:
+
 - Shared library: `dora-common`
 - Python nodes: `dora-asr`, `dora-primespeech`, `dora-speechmonitor`, `dora-text-segmenter`
 - Rust nodes: `dora-maas-client`, `dora-conference-bridge`, `dora-conference-controller`
@@ -120,6 +122,8 @@ For LLM inference, set your API keys in the MoFA Settings app or via environment
 export OPENAI_API_KEY="your-key"
 export DEEPSEEK_API_KEY="your-key"
 export ALIBABA_CLOUD_API_KEY="your-key"
+
+
 ```
 
 ### Build & Run
@@ -131,6 +135,10 @@ cd mofa-studio
 
 # Build in release mode
 cargo build --release
+
+# windows users may need to set the HOME environment variable for config storage
+$env:HOME = $env:USERPROFILE
+$env:DEEPSEEK_API_KEY = "API_KEY_HERE"
 
 # Run the application
 cargo run --release
@@ -171,26 +179,26 @@ dora stop <dataflow-id>
 
 The `node-hub/` directory contains all Dora nodes used by the dataflows:
 
-| Node | Type | Description |
-|------|------|-------------|
-| `dora-maas-client` | Rust | LLM inference via MaaS APIs |
-| `dora-conference-bridge` | Rust | Text routing between participants |
-| `dora-conference-controller` | Rust | Turn-taking and policy management |
-| `dora-primespeech` | Python | TTS synthesis with multiple voices |
-| `dora-text-segmenter` | Python | Text segmentation for TTS |
-| `dora-asr` | Python | Speech recognition (Whisper/FunASR) |
-| `dora-common` | Python | Shared logging utilities |
+| Node                         | Type   | Description                         |
+| ---------------------------- | ------ | ----------------------------------- |
+| `dora-maas-client`           | Rust   | LLM inference via MaaS APIs         |
+| `dora-conference-bridge`     | Rust   | Text routing between participants   |
+| `dora-conference-controller` | Rust   | Turn-taking and policy management   |
+| `dora-primespeech`           | Python | TTS synthesis with multiple voices  |
+| `dora-text-segmenter`        | Python | Text segmentation for TTS           |
+| `dora-asr`                   | Python | Speech recognition (Whisper/FunASR) |
+| `dora-common`                | Python | Shared logging utilities            |
 
 ## 📦 Project Structure
 
 MoFA Studio is organized as a Cargo workspace with 5 crates:
 
-| Crate | Type | Description |
-|-------|------|-------------|
-| `mofa-studio-shell` | Binary | Main application shell with window chrome and navigation |
-| `mofa-widgets` | Library | Shared UI components (theme, audio player, waveforms, etc.) |
-| `mofa-fm` | Library | Voice chat interface app |
-| `mofa-settings` | Library | Provider configuration app |
+| Crate               | Type    | Description                                                 |
+| ------------------- | ------- | ----------------------------------------------------------- |
+| `mofa-studio-shell` | Binary  | Main application shell with window chrome and navigation    |
+| `mofa-widgets`      | Library | Shared UI components (theme, audio player, waveforms, etc.) |
+| `mofa-fm`           | Library | Voice chat interface app                                    |
+| `mofa-settings`     | Library | Provider configuration app                                  |
 
 ### Key Files
 
@@ -204,6 +212,7 @@ MoFA Studio is organized as a Cargo workspace with 5 crates:
 MoFA Studio is currently a **UI prototype** with working components:
 
 ### ✅ Implemented
+
 - Full UI navigation and theming
 - Audio device selection and monitoring
 - Provider configuration persistence
@@ -211,6 +220,7 @@ MoFA Studio is currently a **UI prototype** with working components:
 - Plugin app system
 
 ### 🚧 Planned
+
 - WebSocket client for AI service integration
 - Live ASR (speech recognition) integration
 - Live TTS (text-to-speech) integration
@@ -250,12 +260,12 @@ See [APP_DEVELOPMENT_GUIDE.md](APP_DEVELOPMENT_GUIDE.md) for step-by-step instru
 
 ## 📚 Documentation
 
-| Document | Description |
-|----------|-------------|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | System architecture, widget hierarchy, best practices |
-| [APP_DEVELOPMENT_GUIDE.md](APP_DEVELOPMENT_GUIDE.md) | Creating apps, plugin system, dark mode support |
-| [STATE_MANAGEMENT_ANALYSIS.md](STATE_MANAGEMENT_ANALYSIS.md) | Why Redux/Zustand don't work in Makepad |
-| [CHECKLIST.md](CHECKLIST.md) | P0-P3 refactoring roadmap (all complete) |
+| Document                                                     | Description                                           |
+| ------------------------------------------------------------ | ----------------------------------------------------- |
+| [ARCHITECTURE.md](ARCHITECTURE.md)                           | System architecture, widget hierarchy, best practices |
+| [APP_DEVELOPMENT_GUIDE.md](APP_DEVELOPMENT_GUIDE.md)         | Creating apps, plugin system, dark mode support       |
+| [STATE_MANAGEMENT_ANALYSIS.md](STATE_MANAGEMENT_ANALYSIS.md) | Why Redux/Zustand don't work in Makepad               |
+| [CHECKLIST.md](CHECKLIST.md)                                 | P0-P3 refactoring roadmap (all complete)              |
 
 ## 🔧 Technology Stack
 
@@ -306,4 +316,4 @@ You may obtain a copy of the License at
 
 ---
 
-*Built with ❤️ using Rust and Makepad*
+_Built with ❤️ using Rust and Makepad_

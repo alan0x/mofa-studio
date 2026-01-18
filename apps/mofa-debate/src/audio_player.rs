@@ -360,42 +360,95 @@ fn run_audio_thread(
         device.name().unwrap_or_default()
     );
 
+    // Query supported configurations and find a compatible one
+    let supported_config = device
+        .supported_output_configs()
+        .map_err(|e| format!("Failed to query audio configs: {}", e))?
+        .find(|c| {
+            // Prefer configs that support our sample rate
+            c.min_sample_rate().0 <= sample_rate && c.max_sample_rate().0 >= sample_rate
+        })
+        .or_else(|| {
+            // Fallback: use first available config
+            device.supported_output_configs().ok()?.next()
+        })
+        .ok_or_else(|| "No supported audio output configuration found".to_string())?;
+
+    let actual_sample_rate = if supported_config.min_sample_rate().0 <= sample_rate
+        && supported_config.max_sample_rate().0 >= sample_rate
+    {
+        sample_rate
+    } else {
+        // Use device's preferred sample rate
+        supported_config
+            .min_sample_rate()
+            .0
+            .max(44100)
+            .min(supported_config.max_sample_rate().0)
+    };
+
+    let channels = supported_config.channels();
+
+    log::info!(
+        "Audio config: {} channels, {} Hz (requested: {} Hz)",
+        channels,
+        actual_sample_rate,
+        sample_rate
+    );
+
     let config = cpal::StreamConfig {
-        channels: 1,
-        sample_rate: cpal::SampleRate(sample_rate),
+        channels,
+        sample_rate: cpal::SampleRate(actual_sample_rate),
         buffer_size: cpal::BufferSize::Default,
     };
+
+    // We may need to resample if actual_sample_rate != sample_rate (future enhancement)
+    let _needs_resample = actual_sample_rate != sample_rate;
+    let _resample_ratio = sample_rate as f32 / actual_sample_rate as f32;
 
     let buffer_clone = Arc::clone(&buffer);
     let is_playing_clone = Arc::clone(&is_playing);
     let state_for_callback = Arc::clone(&state);
+    let output_channels = channels as usize;
 
     let stream = device
         .build_output_stream(
             &config,
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
                 if is_playing_clone.load(Ordering::Relaxed) {
-                    let mut buf = buffer_clone.lock();
-                    buf.read(data);
-                    let current_participant = buf.current_participant();
-                    drop(buf);
+                    // For multi-channel output, we need to read mono samples and duplicate to all channels
+                    let frames = data.len() / output_channels;
+                    let mut mono_samples = vec![0.0f32; frames];
 
+                    {
+                        let mut buf = buffer_clone.lock();
+                        buf.read(&mut mono_samples);
+                    }
+
+                    // Duplicate mono to all channels (interleaved format)
+                    for (frame_idx, &sample) in mono_samples.iter().enumerate() {
+                        for ch in 0..output_channels {
+                            data[frame_idx * output_channels + ch] = sample;
+                        }
+                    }
+
+                    // Update state
                     if let Some(mut s) = state_for_callback.try_lock() {
-                        s.current_participant = current_participant;
+                        let buf = buffer_clone.lock();
+                        s.current_participant = buf.current_participant();
+                        drop(buf);
 
                         // Store output samples for waveform visualization
-                        // Match conference-dashboard's approach
-                        let samples: Vec<f32> = data.iter().copied().collect();
-                        if samples.len() >= 512 {
-                            s.output_waveform = samples[..512].to_vec();
-                        } else if !samples.is_empty() {
-                            // Stretch samples to fill 512 by repeating/interpolating
+                        if mono_samples.len() >= 512 {
+                            s.output_waveform = mono_samples[..512].to_vec();
+                        } else if !mono_samples.is_empty() {
                             s.output_waveform.clear();
                             s.output_waveform.reserve(512);
-                            let ratio = samples.len() as f32 / 512.0;
+                            let ratio = mono_samples.len() as f32 / 512.0;
                             for i in 0..512 {
-                                let src_idx = ((i as f32 * ratio) as usize).min(samples.len() - 1);
-                                s.output_waveform.push(samples[src_idx]);
+                                let src_idx =
+                                    ((i as f32 * ratio) as usize).min(mono_samples.len() - 1);
+                                s.output_waveform.push(mono_samples[src_idx]);
                             }
                         } else {
                             s.output_waveform = vec![0.0; 512];

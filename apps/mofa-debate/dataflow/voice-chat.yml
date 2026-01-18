@@ -70,7 +70,7 @@ nodes:
 
   # Multi-Input Text Segmenter with FIFO Session Queue
   - id: multi-text-segmenter
-    build: pip install -e ../../../node-hub/dora-text-segmenter
+    # build: pip install -e ../../../node-hub/dora-text-segmenter  # DISABLED: package already installed via conda
     path: dora-text-segmenter
     inputs:
       # Participant inputs - output names are derived from these input port names
@@ -119,7 +119,7 @@ nodes:
 
   # PrimeSpeech TTS for Student1 (Zhao Daniu - Male, Rational Voice)
   - id: primespeech-student1
-    build: pip install -e ../../../libs/dora-common -e ../../../node-hub/dora-primespeech
+    # build: pip install -e ../../../libs/dora-common -e ../../../node-hub/dora-primespeech  # DISABLED: package already installed via conda
     path: dora-primespeech
     inputs:
       text: multi-text-segmenter/text_segment_student1
@@ -150,7 +150,7 @@ nodes:
 
   # PrimeSpeech TTS for Student2 (Chen Yifan - Female, Emotional Voice)
   - id: primespeech-student2
-    build: pip install -e ../../../libs/dora-common -e ../../../node-hub/dora-primespeech
+    # build: pip install -e ../../../libs/dora-common -e ../../../node-hub/dora-primespeech  # DISABLED: package already installed via conda
     path: dora-primespeech
     inputs:
       text: multi-text-segmenter/text_segment_student2
@@ -181,7 +181,7 @@ nodes:
 
   # PrimeSpeech TTS for Tutor (Luo Xiang - Male, Authoritative Voice)
   - id: primespeech-tutor
-    build: pip install -e ../../../libs/dora-common -e ../../../node-hub/dora-primespeech
+    # build: pip install -e ../../../libs/dora-common -e ../../../node-hub/dora-primespeech  # DISABLED: package already installed via conda
     path: dora-primespeech
     inputs:
       text: multi-text-segmenter/text_segment_tutor

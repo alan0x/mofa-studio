@@ -93,7 +93,7 @@ impl PromptInputBridge {
         stop_receiver: Receiver<()>,
     ) {
         info!("Starting prompt input bridge event loop for {}", node_id);
-
+        println!("Prompt input bridge event loop started for {}", node_id);
         // Initialize dora node
         let (mut node, mut events) =
             match DoraNode::init_from_node_id(NodeId::from(node_id.clone())) {
@@ -108,6 +108,7 @@ impl PromptInputBridge {
                 }
             };
 
+        println!("Dora node initialized for {}", node_id);
         *state.write() = BridgeState::Connected;
         if let Some(ref ss) = shared_state {
             ss.add_bridge(node_id.clone());

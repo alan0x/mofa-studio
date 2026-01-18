@@ -107,9 +107,10 @@ impl DoraIntegration {
         &self.shared_dora_state
     }
 
-    /// Send a command to the dora integration
+    /// Send a command to the dora integration (non-blocking)
     pub fn send_command(&self, cmd: DoraCommand) -> bool {
-        self.command_tx.send(cmd).is_ok()
+        // Use try_send to avoid blocking the UI thread if channel is full
+        self.command_tx.try_send(cmd).is_ok()
     }
 
     /// Start a dataflow with optional environment variables

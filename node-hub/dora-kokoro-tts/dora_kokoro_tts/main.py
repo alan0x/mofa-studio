@@ -309,23 +309,29 @@ def main():
 
                 send_log(node, "DEBUG", f"Received text: '{text}' (len={len(text)})", LOG_LEVEL)
 
-                # Skip if text is only punctuation or whitespace
-                text_stripped = text.strip()
-                if not text_stripped or all(c in '。！？.!?,，、；：""''（）【】《》\n\r\t ' for c in text_stripped):
-                    send_log(node, "DEBUG", f"Skipped - text is only punctuation/whitespace: '{text}'", LOG_LEVEL)
-                    # Send segment_complete without audio
-                    node.send_output(
-                        "segment_complete",
-                        pa.array(["skipped"]),
-                        metadata={
-                            "question_id": question_id,
-                            "session_status": session_status,
-                            "session_id": session_id
-                        }
-                    )
-                    continue
+                # Try to parse JSON (PromptInputBridge sends {"prompt": "text"})
+                try:
+                    import json
+                    if text.strip().startswith("{") and text.strip().endswith("}"):
+                        json_data = json.loads(text)
+                        if "prompt" in json_data:
+                            text = json_data["prompt"]
+                            send_log(node, "DEBUG", f"Parsed prompt from JSON: '{text}'", LOG_LEVEL)
+                except Exception as e:
+                    send_log(node, "DEBUG", f"Not valid JSON or parsing error: {e}", LOG_LEVEL)
 
-                send_log(node, "INFO", f"Processing text (len={len(text)})", LOG_LEVEL)
+                # Check for voice prefix "VOICE:id|text"
+                current_voice = VOICE
+                if text.startswith("VOICE:"):
+                    parts = text.split("|", 1)
+                    if len(parts) == 2:
+                        voice_id = parts[0][6:]
+                        text = parts[1]
+                        # Map internal voice IDs here if needed, or use directly
+                        current_voice = voice_id
+                        send_log(node, "INFO", f"Dynamic voice switching: {current_voice}", LOG_LEVEL)
+                
+                send_log(node, "INFO", f"Processing text: '{text[:20]}...'", LOG_LEVEL)
 
                 # Lazy initialize backend on first use
                 if backend is None:
@@ -355,7 +361,7 @@ def main():
 
                 # Log synthesis parameters at DEBUG level
                 send_log(node, "DEBUG",
-                        f"Synthesis: text='{text[:50]}...' voice={VOICE} speed={SPEED} lang={lang_code}",
+                        f"Synthesis: text='{text[:50]}...' voice={current_voice} speed={SPEED} lang={lang_code}",
                         LOG_LEVEL)
 
                 # Synthesize speech
@@ -363,7 +369,7 @@ def main():
 
                 try:
                     # Generate audio using selected backend
-                    audio_array, sample_rate = backend.synthesize(text, VOICE, SPEED, lang_code)
+                    audio_array, sample_rate = backend.synthesize(text, current_voice, SPEED, lang_code)
 
                     synthesis_time = time.time() - start_time
                     audio_duration = len(audio_array) / sample_rate
