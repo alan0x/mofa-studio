@@ -1052,12 +1052,20 @@ live_design! {
                                     show_bg: true
                                     draw_bg: {
                                         instance dark_mode: 0.0
+                                        instance opacity: 1.0
+                                        instance highlight: 0.0
                                         border_radius: 8.0
                                         fn pixel(self) -> vec4 {
                                             let sdf = Sdf2d::viewport(self.pos * self.rect_size);
-                                            sdf.box(0., 0., self.rect_size.x, self.rect_size.y, self.border_radius);
                                             let bg = mix((SLATE_50), (SLATE_700), self.dark_mode);
-                                            sdf.fill(bg);
+                                            // Scale effect: shrink from center when highlight > 0
+                                            let scale = 1.0 - self.highlight * 0.05;
+                                            let offset_x = self.rect_size.x * (1.0 - scale) * 0.5;
+                                            let offset_y = self.rect_size.y * (1.0 - scale) * 0.5;
+                                            let w = self.rect_size.x * scale;
+                                            let h = self.rect_size.y * scale;
+                                            sdf.box(offset_x, offset_y, w, h, self.border_radius * scale);
+                                            sdf.fill(vec4(bg.x, bg.y, bg.z, bg.w * self.opacity));
                                             return sdf.result;
                                         }
                                     }
@@ -1128,43 +1136,32 @@ live_design! {
                                                     let color = mix(vec4(0.4, 0.45, 0.5, 1.0), vec4(0.7, 0.75, 0.8, 1.0), self.dark_mode);
                                                     let w = self.rect_size.x;
                                                     let h = self.rect_size.y;
-                                                    if self.maximized < 0.5 {
-                                                        // Max icon - arrows pointing to corners
-                                                        // Top-right arrow L-shape
-                                                        sdf.move_to(w * 0.58, h * 0.29);
-                                                        sdf.line_to(w * 0.71, h * 0.29);
-                                                        sdf.move_to(w * 0.71, h * 0.29);
-                                                        sdf.line_to(w * 0.71, h * 0.42);
-                                                        // Diagonal from center toward top-right
-                                                        sdf.move_to(w * 0.46, h * 0.54);
-                                                        sdf.line_to(w * 0.62, h * 0.38);
-                                                        // Bottom-left arrow L-shape
-                                                        sdf.move_to(w * 0.29, h * 0.58);
-                                                        sdf.line_to(w * 0.29, h * 0.71);
-                                                        sdf.move_to(w * 0.29, h * 0.71);
-                                                        sdf.line_to(w * 0.42, h * 0.71);
-                                                        // Diagonal from center toward bottom-left
-                                                        sdf.move_to(w * 0.54, h * 0.46);
-                                                        sdf.line_to(w * 0.38, h * 0.62);
-                                                    } else {
-                                                        // Mini icon - arrows pointing inward from corners
-                                                        // Top-right: diagonal from corner to center area
-                                                        sdf.move_to(w * 0.83, h * 0.17);
-                                                        sdf.line_to(w * 0.58, h * 0.42);
-                                                        // L-shape at end of top-right arrow
-                                                        sdf.move_to(w * 0.58, h * 0.42);
-                                                        sdf.line_to(w * 0.74, h * 0.42);
-                                                        sdf.move_to(w * 0.58, h * 0.42);
-                                                        sdf.line_to(w * 0.58, h * 0.26);
-                                                        // Bottom-left: diagonal from corner to center area
-                                                        sdf.move_to(w * 0.17, h * 0.83);
-                                                        sdf.line_to(w * 0.42, h * 0.58);
-                                                        // L-shape at end of bottom-left arrow
-                                                        sdf.move_to(w * 0.42, h * 0.58);
-                                                        sdf.line_to(w * 0.26, h * 0.58);
-                                                        sdf.move_to(w * 0.42, h * 0.58);
-                                                        sdf.line_to(w * 0.42, h * 0.74);
-                                                    }
+                                                    let t = self.maximized;
+                                                    // Interpolate between expand (t=0) and collapse (t=1) icons
+                                                    // Top-right arrow: L-shape corner moves from inner to outer
+                                                    let tr_corner_x = mix(0.71, 0.83, t);
+                                                    let tr_corner_y = mix(0.29, 0.17, t);
+                                                    let tr_end_x = mix(0.62, 0.58, t);
+                                                    let tr_end_y = mix(0.38, 0.42, t);
+                                                    sdf.move_to(w * mix(0.58, 0.58, t), h * mix(0.29, 0.26, t));
+                                                    sdf.line_to(w * mix(0.71, 0.58, t), h * mix(0.29, 0.42, t));
+                                                    sdf.move_to(w * mix(0.71, 0.58, t), h * mix(0.29, 0.42, t));
+                                                    sdf.line_to(w * mix(0.71, 0.74, t), h * mix(0.42, 0.42, t));
+                                                    // Diagonal line
+                                                    sdf.move_to(w * mix(0.46, 0.83, t), h * mix(0.54, 0.17, t));
+                                                    sdf.line_to(w * tr_end_x, h * tr_end_y);
+                                                    // Bottom-left arrow: L-shape corner moves from inner to outer
+                                                    let bl_corner_x = mix(0.29, 0.17, t);
+                                                    let bl_corner_y = mix(0.71, 0.83, t);
+                                                    let bl_end_x = mix(0.38, 0.42, t);
+                                                    let bl_end_y = mix(0.62, 0.58, t);
+                                                    sdf.move_to(w * mix(0.29, 0.26, t), h * mix(0.58, 0.58, t));
+                                                    sdf.line_to(w * mix(0.29, 0.42, t), h * mix(0.71, 0.58, t));
+                                                    sdf.move_to(w * mix(0.29, 0.42, t), h * mix(0.71, 0.58, t));
+                                                    sdf.line_to(w * mix(0.42, 0.42, t), h * mix(0.71, 0.74, t));
+                                                    // Diagonal line
+                                                    sdf.move_to(w * mix(0.54, 0.17, t), h * mix(0.46, 0.83, t));
+                                                    sdf.line_to(w * bl_end_x, h * bl_end_y);
                                                     sdf.stroke(color, 1.2);
                                                     return sdf.result;
                                                 }
@@ -1476,12 +1473,20 @@ live_design! {
                                     show_bg: true
                                     draw_bg: {
                                         instance dark_mode: 0.0
+                                        instance opacity: 1.0
+                                        instance highlight: 0.0
                                         border_radius: 8.0
                                         fn pixel(self) -> vec4 {
                                             let sdf = Sdf2d::viewport(self.pos * self.rect_size);
-                                            sdf.box(0., 0., self.rect_size.x, self.rect_size.y, self.border_radius);
                                             let bg = mix((SLATE_50), (SLATE_700), self.dark_mode);
-                                            sdf.fill(bg);
+                                            // Scale effect: shrink from center when highlight > 0
+                                            let scale = 1.0 - self.highlight * 0.05;
+                                            let offset_x = self.rect_size.x * (1.0 - scale) * 0.5;
+                                            let offset_y = self.rect_size.y * (1.0 - scale) * 0.5;
+                                            let w = self.rect_size.x * scale;
+                                            let h = self.rect_size.y * scale;
+                                            sdf.box(offset_x, offset_y, w, h, self.border_radius * scale);
+                                            sdf.fill(vec4(bg.x, bg.y, bg.z, bg.w * self.opacity));
                                             return sdf.result;
                                         }
                                     }
@@ -1551,43 +1556,32 @@ live_design! {
                                                     let color = mix(vec4(0.4, 0.45, 0.5, 1.0), vec4(0.7, 0.75, 0.8, 1.0), self.dark_mode);
                                                     let w = self.rect_size.x;
                                                     let h = self.rect_size.y;
-                                                    if self.maximized < 0.5 {
-                                                        // Max icon - arrows pointing to corners
-                                                        // Top-right arrow L-shape
-                                                        sdf.move_to(w * 0.58, h * 0.29);
-                                                        sdf.line_to(w * 0.71, h * 0.29);
-                                                        sdf.move_to(w * 0.71, h * 0.29);
-                                                        sdf.line_to(w * 0.71, h * 0.42);
-                                                        // Diagonal from center toward top-right
-                                                        sdf.move_to(w * 0.46, h * 0.54);
-                                                        sdf.line_to(w * 0.62, h * 0.38);
-                                                        // Bottom-left arrow L-shape
-                                                        sdf.move_to(w * 0.29, h * 0.58);
-                                                        sdf.line_to(w * 0.29, h * 0.71);
-                                                        sdf.move_to(w * 0.29, h * 0.71);
-                                                        sdf.line_to(w * 0.42, h * 0.71);
-                                                        // Diagonal from center toward bottom-left
-                                                        sdf.move_to(w * 0.54, h * 0.46);
-                                                        sdf.line_to(w * 0.38, h * 0.62);
-                                                    } else {
-                                                        // Mini icon - arrows pointing inward from corners
-                                                        // Top-right: diagonal from corner to center area
-                                                        sdf.move_to(w * 0.83, h * 0.17);
-                                                        sdf.line_to(w * 0.58, h * 0.42);
-                                                        // L-shape at end of top-right arrow
-                                                        sdf.move_to(w * 0.58, h * 0.42);
-                                                        sdf.line_to(w * 0.74, h * 0.42);
-                                                        sdf.move_to(w * 0.58, h * 0.42);
-                                                        sdf.line_to(w * 0.58, h * 0.26);
-                                                        // Bottom-left: diagonal from corner to center area
-                                                        sdf.move_to(w * 0.17, h * 0.83);
-                                                        sdf.line_to(w * 0.42, h * 0.58);
-                                                        // L-shape at end of bottom-left arrow
-                                                        sdf.move_to(w * 0.42, h * 0.58);
-                                                        sdf.line_to(w * 0.26, h * 0.58);
-                                                        sdf.move_to(w * 0.42, h * 0.58);
-                                                        sdf.line_to(w * 0.42, h * 0.74);
-                                                    }
+                                                    let t = self.maximized;
+                                                    // Interpolate between expand (t=0) and collapse (t=1) icons
+                                                    // Top-right arrow: L-shape corner moves from inner to outer
+                                                    let tr_corner_x = mix(0.71, 0.83, t);
+                                                    let tr_corner_y = mix(0.29, 0.17, t);
+                                                    let tr_end_x = mix(0.62, 0.58, t);
+                                                    let tr_end_y = mix(0.38, 0.42, t);
+                                                    sdf.move_to(w * mix(0.58, 0.58, t), h * mix(0.29, 0.26, t));
+                                                    sdf.line_to(w * mix(0.71, 0.58, t), h * mix(0.29, 0.42, t));
+                                                    sdf.move_to(w * mix(0.71, 0.58, t), h * mix(0.29, 0.42, t));
+                                                    sdf.line_to(w * mix(0.71, 0.74, t), h * mix(0.42, 0.42, t));
+                                                    // Diagonal line
+                                                    sdf.move_to(w * mix(0.46, 0.83, t), h * mix(0.54, 0.17, t));
+                                                    sdf.line_to(w * tr_end_x, h * tr_end_y);
+                                                    // Bottom-left arrow: L-shape corner moves from inner to outer
+                                                    let bl_corner_x = mix(0.29, 0.17, t);
+                                                    let bl_corner_y = mix(0.71, 0.83, t);
+                                                    let bl_end_x = mix(0.38, 0.42, t);
+                                                    let bl_end_y = mix(0.62, 0.58, t);
+                                                    sdf.move_to(w * mix(0.29, 0.26, t), h * mix(0.58, 0.58, t));
+                                                    sdf.line_to(w * mix(0.29, 0.42, t), h * mix(0.71, 0.58, t));
+                                                    sdf.move_to(w * mix(0.29, 0.42, t), h * mix(0.71, 0.58, t));
+                                                    sdf.line_to(w * mix(0.42, 0.42, t), h * mix(0.71, 0.74, t));
+                                                    // Diagonal line
+                                                    sdf.move_to(w * mix(0.54, 0.17, t), h * mix(0.46, 0.83, t));
+                                                    sdf.line_to(w * bl_end_x, h * bl_end_y);
                                                     sdf.stroke(color, 1.2);
                                                     return sdf.result;
                                                 }
@@ -1895,12 +1889,20 @@ live_design! {
                                     show_bg: true
                                     draw_bg: {
                                         instance dark_mode: 0.0
+                                        instance opacity: 1.0
+                                        instance highlight: 0.0
                                         border_radius: 8.0
                                         fn pixel(self) -> vec4 {
                                             let sdf = Sdf2d::viewport(self.pos * self.rect_size);
-                                            sdf.box(0., 0., self.rect_size.x, self.rect_size.y, self.border_radius);
                                             let bg = mix((SLATE_50), (SLATE_700), self.dark_mode);
-                                            sdf.fill(bg);
+                                            // Scale effect: shrink from center when highlight > 0
+                                            let scale = 1.0 - self.highlight * 0.05;
+                                            let offset_x = self.rect_size.x * (1.0 - scale) * 0.5;
+                                            let offset_y = self.rect_size.y * (1.0 - scale) * 0.5;
+                                            let w = self.rect_size.x * scale;
+                                            let h = self.rect_size.y * scale;
+                                            sdf.box(offset_x, offset_y, w, h, self.border_radius * scale);
+                                            sdf.fill(vec4(bg.x, bg.y, bg.z, bg.w * self.opacity));
                                             return sdf.result;
                                         }
                                     }
@@ -1970,43 +1972,32 @@ live_design! {
                                                     let color = mix(vec4(0.4, 0.45, 0.5, 1.0), vec4(0.7, 0.75, 0.8, 1.0), self.dark_mode);
                                                     let w = self.rect_size.x;
                                                     let h = self.rect_size.y;
-                                                    if self.maximized < 0.5 {
-                                                        // Max icon - arrows pointing to corners
-                                                        // Top-right arrow L-shape
-                                                        sdf.move_to(w * 0.58, h * 0.29);
-                                                        sdf.line_to(w * 0.71, h * 0.29);
-                                                        sdf.move_to(w * 0.71, h * 0.29);
-                                                        sdf.line_to(w * 0.71, h * 0.42);
-                                                        // Diagonal from center toward top-right
-                                                        sdf.move_to(w * 0.46, h * 0.54);
-                                                        sdf.line_to(w * 0.62, h * 0.38);
-                                                        // Bottom-left arrow L-shape
-                                                        sdf.move_to(w * 0.29, h * 0.58);
-                                                        sdf.line_to(w * 0.29, h * 0.71);
-                                                        sdf.move_to(w * 0.29, h * 0.71);
-                                                        sdf.line_to(w * 0.42, h * 0.71);
-                                                        // Diagonal from center toward bottom-left
-                                                        sdf.move_to(w * 0.54, h * 0.46);
-                                                        sdf.line_to(w * 0.38, h * 0.62);
-                                                    } else {
-                                                        // Mini icon - arrows pointing inward from corners
-                                                        // Top-right: diagonal from corner to center area
-                                                        sdf.move_to(w * 0.83, h * 0.17);
-                                                        sdf.line_to(w * 0.58, h * 0.42);
-                                                        // L-shape at end of top-right arrow
-                                                        sdf.move_to(w * 0.58, h * 0.42);
-                                                        sdf.line_to(w * 0.74, h * 0.42);
-                                                        sdf.move_to(w * 0.58, h * 0.42);
-                                                        sdf.line_to(w * 0.58, h * 0.26);
-                                                        // Bottom-left: diagonal from corner to center area
-                                                        sdf.move_to(w * 0.17, h * 0.83);
-                                                        sdf.line_to(w * 0.42, h * 0.58);
-                                                        // L-shape at end of bottom-left arrow
-                                                        sdf.move_to(w * 0.42, h * 0.58);
-                                                        sdf.line_to(w * 0.26, h * 0.58);
-                                                        sdf.move_to(w * 0.42, h * 0.58);
-                                                        sdf.line_to(w * 0.42, h * 0.74);
-                                                    }
+                                                    let t = self.maximized;
+                                                    // Interpolate between expand (t=0) and collapse (t=1) icons
+                                                    // Top-right arrow: L-shape corner moves from inner to outer
+                                                    let tr_corner_x = mix(0.71, 0.83, t);
+                                                    let tr_corner_y = mix(0.29, 0.17, t);
+                                                    let tr_end_x = mix(0.62, 0.58, t);
+                                                    let tr_end_y = mix(0.38, 0.42, t);
+                                                    sdf.move_to(w * mix(0.58, 0.58, t), h * mix(0.29, 0.26, t));
+                                                    sdf.line_to(w * mix(0.71, 0.58, t), h * mix(0.29, 0.42, t));
+                                                    sdf.move_to(w * mix(0.71, 0.58, t), h * mix(0.29, 0.42, t));
+                                                    sdf.line_to(w * mix(0.71, 0.74, t), h * mix(0.42, 0.42, t));
+                                                    // Diagonal line
+                                                    sdf.move_to(w * mix(0.46, 0.83, t), h * mix(0.54, 0.17, t));
+                                                    sdf.line_to(w * tr_end_x, h * tr_end_y);
+                                                    // Bottom-left arrow: L-shape corner moves from inner to outer
+                                                    let bl_corner_x = mix(0.29, 0.17, t);
+                                                    let bl_corner_y = mix(0.71, 0.83, t);
+                                                    let bl_end_x = mix(0.38, 0.42, t);
+                                                    let bl_end_y = mix(0.62, 0.58, t);
+                                                    sdf.move_to(w * mix(0.29, 0.26, t), h * mix(0.58, 0.58, t));
+                                                    sdf.line_to(w * mix(0.29, 0.42, t), h * mix(0.71, 0.58, t));
+                                                    sdf.move_to(w * mix(0.29, 0.42, t), h * mix(0.71, 0.58, t));
+                                                    sdf.line_to(w * mix(0.42, 0.42, t), h * mix(0.71, 0.74, t));
+                                                    // Diagonal line
+                                                    sdf.move_to(w * mix(0.54, 0.17, t), h * mix(0.46, 0.83, t));
+                                                    sdf.line_to(w * bl_end_x, h * bl_end_y);
                                                     sdf.stroke(color, 1.2);
                                                     return sdf.result;
                                                 }
@@ -2314,12 +2305,20 @@ live_design! {
                                     show_bg: true
                                     draw_bg: {
                                         instance dark_mode: 0.0
+                                        instance opacity: 1.0
+                                        instance highlight: 0.0
                                         border_radius: 8.0
                                         fn pixel(self) -> vec4 {
                                             let sdf = Sdf2d::viewport(self.pos * self.rect_size);
-                                            sdf.box(0., 0., self.rect_size.x, self.rect_size.y, self.border_radius);
                                             let bg = mix((SLATE_50), (SLATE_700), self.dark_mode);
-                                            sdf.fill(bg);
+                                            // Scale effect: shrink from center when highlight > 0
+                                            let scale = 1.0 - self.highlight * 0.05;
+                                            let offset_x = self.rect_size.x * (1.0 - scale) * 0.5;
+                                            let offset_y = self.rect_size.y * (1.0 - scale) * 0.5;
+                                            let w = self.rect_size.x * scale;
+                                            let h = self.rect_size.y * scale;
+                                            sdf.box(offset_x, offset_y, w, h, self.border_radius * scale);
+                                            sdf.fill(vec4(bg.x, bg.y, bg.z, bg.w * self.opacity));
                                             return sdf.result;
                                         }
                                     }
@@ -2389,43 +2388,32 @@ live_design! {
                                                     let color = mix(vec4(0.4, 0.45, 0.5, 1.0), vec4(0.7, 0.75, 0.8, 1.0), self.dark_mode);
                                                     let w = self.rect_size.x;
                                                     let h = self.rect_size.y;
-                                                    if self.maximized < 0.5 {
-                                                        // Max icon - arrows pointing to corners
-                                                        // Top-right arrow L-shape
-                                                        sdf.move_to(w * 0.58, h * 0.29);
-                                                        sdf.line_to(w * 0.71, h * 0.29);
-                                                        sdf.move_to(w * 0.71, h * 0.29);
-                                                        sdf.line_to(w * 0.71, h * 0.42);
-                                                        // Diagonal from center toward top-right
-                                                        sdf.move_to(w * 0.46, h * 0.54);
-                                                        sdf.line_to(w * 0.62, h * 0.38);
-                                                        // Bottom-left arrow L-shape
-                                                        sdf.move_to(w * 0.29, h * 0.58);
-                                                        sdf.line_to(w * 0.29, h * 0.71);
-                                                        sdf.move_to(w * 0.29, h * 0.71);
-                                                        sdf.line_to(w * 0.42, h * 0.71);
-                                                        // Diagonal from center toward bottom-left
-                                                        sdf.move_to(w * 0.54, h * 0.46);
-                                                        sdf.line_to(w * 0.38, h * 0.62);
-                                                    } else {
-                                                        // Mini icon - arrows pointing inward from corners
-                                                        // Top-right: diagonal from corner to center area
-                                                        sdf.move_to(w * 0.83, h * 0.17);
-                                                        sdf.line_to(w * 0.58, h * 0.42);
-                                                        // L-shape at end of top-right arrow
-                                                        sdf.move_to(w * 0.58, h * 0.42);
-                                                        sdf.line_to(w * 0.74, h * 0.42);
-                                                        sdf.move_to(w * 0.58, h * 0.42);
-                                                        sdf.line_to(w * 0.58, h * 0.26);
-                                                        // Bottom-left: diagonal from corner to center area
-                                                        sdf.move_to(w * 0.17, h * 0.83);
-                                                        sdf.line_to(w * 0.42, h * 0.58);
-                                                        // L-shape at end of bottom-left arrow
-                                                        sdf.move_to(w * 0.42, h * 0.58);
-                                                        sdf.line_to(w * 0.26, h * 0.58);
-                                                        sdf.move_to(w * 0.42, h * 0.58);
-                                                        sdf.line_to(w * 0.42, h * 0.74);
-                                                    }
+                                                    let t = self.maximized;
+                                                    // Interpolate between expand (t=0) and collapse (t=1) icons
+                                                    // Top-right arrow: L-shape corner moves from inner to outer
+                                                    let tr_corner_x = mix(0.71, 0.83, t);
+                                                    let tr_corner_y = mix(0.29, 0.17, t);
+                                                    let tr_end_x = mix(0.62, 0.58, t);
+                                                    let tr_end_y = mix(0.38, 0.42, t);
+                                                    sdf.move_to(w * mix(0.58, 0.58, t), h * mix(0.29, 0.26, t));
+                                                    sdf.line_to(w * mix(0.71, 0.58, t), h * mix(0.29, 0.42, t));
+                                                    sdf.move_to(w * mix(0.71, 0.58, t), h * mix(0.29, 0.42, t));
+                                                    sdf.line_to(w * mix(0.71, 0.74, t), h * mix(0.42, 0.42, t));
+                                                    // Diagonal line
+                                                    sdf.move_to(w * mix(0.46, 0.83, t), h * mix(0.54, 0.17, t));
+                                                    sdf.line_to(w * tr_end_x, h * tr_end_y);
+                                                    // Bottom-left arrow: L-shape corner moves from inner to outer
+                                                    let bl_corner_x = mix(0.29, 0.17, t);
+                                                    let bl_corner_y = mix(0.71, 0.83, t);
+                                                    let bl_end_x = mix(0.38, 0.42, t);
+                                                    let bl_end_y = mix(0.62, 0.58, t);
+                                                    sdf.move_to(w * mix(0.29, 0.26, t), h * mix(0.58, 0.58, t));
+                                                    sdf.line_to(w * mix(0.29, 0.42, t), h * mix(0.71, 0.58, t));
+                                                    sdf.move_to(w * mix(0.29, 0.42, t), h * mix(0.71, 0.58, t));
+                                                    sdf.line_to(w * mix(0.42, 0.42, t), h * mix(0.71, 0.74, t));
+                                                    // Diagonal line
+                                                    sdf.move_to(w * mix(0.54, 0.17, t), h * mix(0.46, 0.83, t));
+                                                    sdf.line_to(w * bl_end_x, h * bl_end_y);
                                                     sdf.stroke(color, 1.2);
                                                     return sdf.result;
                                                 }

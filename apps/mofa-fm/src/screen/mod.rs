@@ -189,6 +189,17 @@ pub struct MoFaFMScreen {
     // Editor maximize state: None = normal, Some(id) = maximized editor
     #[rust]
     maximized_editor: Option<String>,
+    // Maximize animation state
+    #[rust]
+    maximize_animation_active: bool,
+    #[rust]
+    maximize_animation_start: f64,
+    #[rust]
+    maximize_animation_target: Option<String>,
+    #[rust]
+    maximize_animation_expanding: bool,  // true = maximizing, false = restoring
+    #[rust]
+    saved_scroll_pos: f64,  // Save scroll position before maximize
     // Shader pre-compilation: hide Settings tab after first draw
     #[rust]
     shader_precompile_frame: usize,
@@ -355,6 +366,41 @@ impl Widget for MoFaFMScreen {
                 if self.copy_log_flash_active {
                     cx.new_next_frame();
                 }
+            }
+
+            // Maximize editor animation
+            if self.maximize_animation_active {
+                // Capture start time on first frame
+                if self.maximize_animation_start == 0.0 {
+                    self.maximize_animation_start = current_time;
+                    ::log::info!("Maximize animation started, target: {:?}, expanding: {}",
+                        self.maximize_animation_target, self.maximize_animation_expanding);
+                }
+                let elapsed = current_time - self.maximize_animation_start;
+                let duration = 0.4;  // 400ms animation for more visible effect
+
+                if elapsed >= duration {
+                    // Animation complete
+                    self.maximize_animation_active = false;
+                    let final_value = if self.maximize_animation_expanding { 1.0 } else { 0.0 };
+                    ::log::info!("Maximize animation complete, final_value: {}", final_value);
+                    self.apply_maximize_value(cx, final_value);
+                    // Finalize visibility after animation
+                    self.finalize_maximize_visibility(cx);
+                } else {
+                    // Animate - use ease-out cubic for smooth deceleration
+                    let t = elapsed / duration;
+                    let ease_t = 1.0 - (1.0 - t).powi(3);
+                    let value = if self.maximize_animation_expanding {
+                        ease_t
+                    } else {
+                        1.0 - ease_t
+                    };
+                    ::log::info!("Maximize animation frame: t={:.3}, value={:.3}", t, value);
+                    self.apply_maximize_value(cx, value);
+                    cx.new_next_frame();
+                }
+                needs_redraw = true;
             }
 
             // Populate TextInputs and force render at startup
@@ -906,10 +952,20 @@ impl MoFaFMScreen {
 
     /// Toggle maximize state for an editor - takes over entire mofa-fm page
     fn toggle_maximize(&mut self, cx: &mut Cx, editor: &str) {
+        ::log::info!("toggle_maximize called for editor: {}", editor);
+
         // Lazy populate TextInput on first interaction
         self.lazy_populate_editor(cx, editor);
 
         let is_currently_maximized = self.maximized_editor.as_deref() == Some(editor);
+
+        // Start animation
+        self.maximize_animation_active = true;
+        self.maximize_animation_start = 0.0;  // Will be captured on first NextFrame
+        self.maximize_animation_target = Some(editor.to_string());
+        self.maximize_animation_expanding = !is_currently_maximized;
+        ::log::info!("Animation started: active={}, expanding={}", self.maximize_animation_active, self.maximize_animation_expanding);
+        cx.new_next_frame();
 
         if is_currently_maximized {
             // Restore: show all UI elements, reset heights
@@ -930,13 +986,21 @@ impl MoFaFMScreen {
             self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.audio_section))
                 .set_visible(cx, true);
 
-            // Show all role config sections
+            // Show all role config sections with opacity 0 for fade-in animation
+            self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.context_section))
+                .apply_over(cx, live!{ draw_bg: { opacity: 0.0 } });
             self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.context_section))
                 .set_visible(cx, true);
             self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student1_config))
+                .apply_over(cx, live!{ draw_bg: { opacity: 0.0 } });
+            self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student1_config))
                 .set_visible(cx, true);
             self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student2_config))
+                .apply_over(cx, live!{ draw_bg: { opacity: 0.0 } });
+            self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student2_config))
                 .set_visible(cx, true);
+            self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.tutor_config))
+                .apply_over(cx, live!{ draw_bg: { opacity: 0.0 } });
             self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.tutor_config))
                 .set_visible(cx, true);
 
@@ -966,15 +1030,7 @@ impl MoFaFMScreen {
             self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.tutor_config.tutor_prompt_container))
                 .apply_over(cx, live!{ height: 120 });
 
-            // Update all maximize buttons to show expand icon (maximized: 0.0)
-            self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.context_section.context_header.context_maximize_btn))
-                .apply_over(cx, live!{ draw_bg: { maximized: 0.0 } });
-            self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student1_config.student1_header.student1_maximize_btn))
-                .apply_over(cx, live!{ draw_bg: { maximized: 0.0 } });
-            self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student2_config.student2_header.student2_maximize_btn))
-                .apply_over(cx, live!{ draw_bg: { maximized: 0.0 } });
-            self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.tutor_config.tutor_header.tutor_maximize_btn))
-                .apply_over(cx, live!{ draw_bg: { maximized: 0.0 } });
+            // Icon animation will handle the maximize button state
         } else {
             // Maximize: hide everything except the editor, take over entire page
             self.maximized_editor = Some(editor.to_string());
@@ -994,20 +1050,11 @@ impl MoFaFMScreen {
             self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.audio_section))
                 .set_visible(cx, false);
 
-            // Hide all role config sections except the one being maximized
-            let show_context = editor == "context";
-            let show_student1 = editor == "student1";
-            let show_student2 = editor == "student2";
-            let show_tutor = editor == "tutor";
-
-            self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.context_section))
-                .set_visible(cx, show_context);
-            self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student1_config))
-                .set_visible(cx, show_student1);
-            self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student2_config))
-                .set_visible(cx, show_student2);
-            self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.tutor_config))
-                .set_visible(cx, show_tutor);
+            // Don't hide role config sections immediately - let the animation fade them out
+            // They will be hidden at the end of the animation by apply_maximize_value
+            // Keep all sections visible for now so they can animate
+            // Just set initial opacity for fade-out (sections not being maximized start at opacity 1)
+            // The animation handler will animate opacity to 0
 
             // Disable outer scroll and let inner editor scroll handle everything
             // Hide the outer settings_scroll's scroll bar
@@ -1026,38 +1073,182 @@ impl MoFaFMScreen {
                         .apply_over(cx, live!{ height: Fill });
                     self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.context_section.context_input_container))
                         .apply_over(cx, live!{ height: Fill });
-                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.context_section.context_header.context_maximize_btn))
-                        .apply_over(cx, live!{ draw_bg: { maximized: 1.0 } });
+                    // Icon animation will handle the maximize button state
                 }
                 "student1" => {
                     self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student1_config))
                         .apply_over(cx, live!{ height: Fill });
                     self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student1_config.student1_prompt_container))
                         .apply_over(cx, live!{ height: Fill });
-                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student1_config.student1_header.student1_maximize_btn))
-                        .apply_over(cx, live!{ draw_bg: { maximized: 1.0 } });
+                    // Icon animation will handle the maximize button state
                 }
                 "student2" => {
                     self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student2_config))
                         .apply_over(cx, live!{ height: Fill });
                     self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student2_config.student2_prompt_container))
                         .apply_over(cx, live!{ height: Fill });
-                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student2_config.student2_header.student2_maximize_btn))
-                        .apply_over(cx, live!{ draw_bg: { maximized: 1.0 } });
+                    // Icon animation will handle the maximize button state
                 }
                 "tutor" => {
                     self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.tutor_config))
                         .apply_over(cx, live!{ height: Fill });
                     self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.tutor_config.tutor_prompt_container))
                         .apply_over(cx, live!{ height: Fill });
-                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.tutor_config.tutor_header.tutor_maximize_btn))
-                        .apply_over(cx, live!{ draw_bg: { maximized: 1.0 } });
+                    // Icon animation will handle the maximize button state
                 }
                 _ => {}
             }
         }
 
         self.view.redraw(cx);
+    }
+
+    /// Apply animated maximize value to the target editor's maximize button and fade other sections
+    fn apply_maximize_value(&mut self, cx: &mut Cx, value: f64) {
+        // Fade opacity for sections that are being hidden (inverse of maximize value)
+        let fade_opacity = 1.0 - value;
+
+        // Highlight pulse effect: peaks at value=0.5, creating a flash during animation
+        // Using parabolic curve: 4 * value * (1 - value) gives 0→1→0 as value goes 0→1
+        let highlight = 4.0 * value * (1.0 - value);
+
+        if let Some(ref editor) = self.maximize_animation_target {
+            // Apply maximize button animation
+            match editor.as_str() {
+                "context" => {
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.context_section.context_header.context_maximize_btn))
+                        .apply_over(cx, live!{ draw_bg: { maximized: (value) } });
+                    // Highlight the maximized section
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.context_section))
+                        .apply_over(cx, live!{ draw_bg: { highlight: (highlight) } });
+                    // Fade out other sections
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student1_config))
+                        .apply_over(cx, live!{ draw_bg: { opacity: (fade_opacity), highlight: 0.0 } });
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student2_config))
+                        .apply_over(cx, live!{ draw_bg: { opacity: (fade_opacity), highlight: 0.0 } });
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.tutor_config))
+                        .apply_over(cx, live!{ draw_bg: { opacity: (fade_opacity), highlight: 0.0 } });
+                }
+                "student1" => {
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student1_config.student1_header.student1_maximize_btn))
+                        .apply_over(cx, live!{ draw_bg: { maximized: (value) } });
+                    // Highlight the maximized section
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student1_config))
+                        .apply_over(cx, live!{ draw_bg: { highlight: (highlight) } });
+                    // Fade out other sections
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.context_section))
+                        .apply_over(cx, live!{ draw_bg: { opacity: (fade_opacity), highlight: 0.0 } });
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student2_config))
+                        .apply_over(cx, live!{ draw_bg: { opacity: (fade_opacity), highlight: 0.0 } });
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.tutor_config))
+                        .apply_over(cx, live!{ draw_bg: { opacity: (fade_opacity), highlight: 0.0 } });
+                }
+                "student2" => {
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student2_config.student2_header.student2_maximize_btn))
+                        .apply_over(cx, live!{ draw_bg: { maximized: (value) } });
+                    // Highlight the maximized section
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student2_config))
+                        .apply_over(cx, live!{ draw_bg: { highlight: (highlight) } });
+                    // Fade out other sections
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.context_section))
+                        .apply_over(cx, live!{ draw_bg: { opacity: (fade_opacity), highlight: 0.0 } });
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student1_config))
+                        .apply_over(cx, live!{ draw_bg: { opacity: (fade_opacity), highlight: 0.0 } });
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.tutor_config))
+                        .apply_over(cx, live!{ draw_bg: { opacity: (fade_opacity), highlight: 0.0 } });
+                }
+                "tutor" => {
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.tutor_config.tutor_header.tutor_maximize_btn))
+                        .apply_over(cx, live!{ draw_bg: { maximized: (value) } });
+                    // Highlight the maximized section
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.tutor_config))
+                        .apply_over(cx, live!{ draw_bg: { highlight: (highlight) } });
+                    // Fade out other sections
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.context_section))
+                        .apply_over(cx, live!{ draw_bg: { opacity: (fade_opacity), highlight: 0.0 } });
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student1_config))
+                        .apply_over(cx, live!{ draw_bg: { opacity: (fade_opacity), highlight: 0.0 } });
+                    self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student2_config))
+                        .apply_over(cx, live!{ draw_bg: { opacity: (fade_opacity), highlight: 0.0 } });
+                }
+                _ => {}
+            }
+        }
+    }
+
+    /// Finalize visibility after maximize animation completes
+    fn finalize_maximize_visibility(&mut self, cx: &mut Cx) {
+        if let Some(ref editor) = self.maximize_animation_target.clone() {
+            if self.maximize_animation_expanding {
+                // Animation was maximizing - now hide the other sections and reset highlight
+                let show_context = editor == "context";
+                let show_student1 = editor == "student1";
+                let show_student2 = editor == "student2";
+                let show_tutor = editor == "tutor";
+
+                self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.context_section))
+                    .set_visible(cx, show_context);
+                self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student1_config))
+                    .set_visible(cx, show_student1);
+                self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student2_config))
+                    .set_visible(cx, show_student2);
+                self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.tutor_config))
+                    .set_visible(cx, show_tutor);
+
+                // Reset highlight on the maximized section
+                match editor.as_str() {
+                    "context" => self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.context_section))
+                        .apply_over(cx, live!{ draw_bg: { highlight: 0.0 } }),
+                    "student1" => self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student1_config))
+                        .apply_over(cx, live!{ draw_bg: { highlight: 0.0 } }),
+                    "student2" => self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student2_config))
+                        .apply_over(cx, live!{ draw_bg: { highlight: 0.0 } }),
+                    "tutor" => self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.tutor_config))
+                        .apply_over(cx, live!{ draw_bg: { highlight: 0.0 } }),
+                    _ => {}
+                }
+
+                ::log::info!("Maximize complete: hidden other sections");
+            } else {
+                // Animation was restoring - reset opacity and highlight for all sections
+                self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.context_section))
+                    .apply_over(cx, live!{ draw_bg: { opacity: 1.0, highlight: 0.0 } });
+                self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student1_config))
+                    .apply_over(cx, live!{ draw_bg: { opacity: 1.0, highlight: 0.0 } });
+                self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.student2_config))
+                    .apply_over(cx, live!{ draw_bg: { opacity: 1.0, highlight: 0.0 } });
+                self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll.settings_content.role_section.tutor_config))
+                    .apply_over(cx, live!{ draw_bg: { opacity: 1.0, highlight: 0.0 } });
+
+                // Scroll to show the section that was restored at its original position
+                // Context is at the bottom, so scroll down to show it
+                // Other sections are near the top, so default scroll is fine
+                match editor.as_str() {
+                    "context" => {
+                        // Scroll to bottom to show context section
+                        self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll))
+                            .set_scroll_pos(cx, DVec2 { x: 0.0, y: 1e10 });
+                    }
+                    "tutor" => {
+                        // Tutor is near the bottom, scroll down to show it
+                        self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll))
+                            .set_scroll_pos(cx, DVec2 { x: 0.0, y: 800.0 });
+                    }
+                    "student2" => {
+                        // Student2 is in the middle, scroll to show it
+                        self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll))
+                            .set_scroll_pos(cx, DVec2 { x: 0.0, y: 400.0 });
+                    }
+                    _ => {
+                        // Student1 is near the top, scroll to top
+                        self.view.view(ids!(left_column.settings_tab_content.settings_panel.settings_scroll))
+                            .set_scroll_pos(cx, DVec2 { x: 0.0, y: 0.0 });
+                    }
+                }
+
+                ::log::info!("Restore complete: reset all section opacities to 1.0");
+            }
+        }
     }
 
     /// Start async preloading in a background thread
