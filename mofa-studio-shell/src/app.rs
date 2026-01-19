@@ -810,6 +810,8 @@ impl App {
             .apply_over(cx, live!{ visible: (current == Some(PageId::MofaFM)) });
         self.ui.view(ids!(body.dashboard_wrapper.dashboard_base.content_area.main_content.content.debate_page))
             .apply_over(cx, live!{ visible: (current == Some(PageId::Debate)) });
+        self.ui.view(ids!(body.dashboard_wrapper.dashboard_base.content_area.main_content.content.tts_page))
+            .apply_over(cx, live!{ visible: (current == Some(PageId::TTS)) });
         self.ui.view(ids!(body.dashboard_wrapper.dashboard_base.content_area.main_content.content.app_page))
             .apply_over(cx, live!{ visible: (current == Some(PageId::App)) });
         self.ui.view(ids!(body.dashboard_wrapper.dashboard_base.content_area.main_content.content.settings_page))
@@ -821,6 +823,7 @@ impl App {
         let (title, description) = match page {
             PageId::MofaFM => ("MoFA FM", "AI-powered audio streaming and voice interface"),
             PageId::Debate => ("MoFA Debate", "Multi-agent debate and discussion platform"),
+            PageId::TTS => ("TTS", "Text to Speech conversion with multiple voices"),
             PageId::Settings => ("Settings", "Configure providers and preferences"),
             PageId::App => ("Demo App", "Select an app from the sidebar"),
         };

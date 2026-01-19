@@ -26,6 +26,7 @@ impl MofaApp for MoFaTTSApp {
             name: "TTS",
             id: "mofa-tts",
             description: "Text to Speech conversion",
+            ..Default::default()
         }
     }
 
