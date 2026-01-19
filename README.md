@@ -138,7 +138,7 @@ cargo build --release
 
 # windows users may need to set the HOME environment variable for config storage
 $env:HOME = $env:USERPROFILE
-$env:DEEPSEEK_API_KEY = "sk-5db2b87806ca4193bfcabd318fcc29b8"
+$env:DEEPSEEK_API_KEY = "YOUR KEY"
 
 # Run the application
 cargo run --release
