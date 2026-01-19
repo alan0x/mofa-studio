@@ -110,7 +110,6 @@ class KokoroMLXBackend:
         """Synthesize audio using MLX backend."""
         import tempfile
         import soundfile as sf
-        from scipy import signal
         import contextlib
         import io
 
@@ -158,15 +157,8 @@ class KokoroMLXBackend:
             os.remove(output_file)
             os.rmdir(temp_dir)
 
-            # Resample from 24000 Hz to 32000 Hz to match PrimeSpeech
-            # Kokoro outputs at 24000 Hz, but PrimeSpeech uses 32000 Hz
-            TARGET_SAMPLE_RATE = 32000
-            if sample_rate != TARGET_SAMPLE_RATE:
-                # Use polyphase filtering for high-quality audio resampling
-                # Ratio: 32000/24000 = 4/3
-                audio_data = signal.resample_poly(audio_data, up=4, down=3)
-                sample_rate = TARGET_SAMPLE_RATE
-
+            # Keep native 24000 Hz - no resampling needed
+            # Audio player handles resampling to device sample rate
             return audio_data.astype(np.float32), sample_rate
 
         except Exception as e:
@@ -193,8 +185,6 @@ class KokoroCPUBackend:
 
     def synthesize(self, text, voice, speed, lang_code):
         """Synthesize audio using CPU backend."""
-        from scipy import signal
-
         # Initialize or switch pipeline if language changed
         if self.pipeline is None or self.current_lang != lang_code:
             self.pipeline = self.KPipeline(lang_code=lang_code, repo_id=self.model_path)
@@ -219,16 +209,10 @@ class KokoroCPUBackend:
 
         # Concatenate
         audio_data = np.concatenate(audio_chunks)
-        sample_rate = 24000  # Kokoro default
+        sample_rate = 24000  # Kokoro native sample rate
 
-        # Resample from 24000 Hz to 32000 Hz to match PrimeSpeech
-        TARGET_SAMPLE_RATE = 32000
-        if sample_rate != TARGET_SAMPLE_RATE:
-            # Use polyphase filtering for high-quality audio resampling
-            # Ratio: 32000/24000 = 4/3
-            audio_data = signal.resample_poly(audio_data, up=4, down=3)
-            sample_rate = TARGET_SAMPLE_RATE
-
+        # Keep native 24000 Hz - no resampling needed
+        # Audio player handles resampling to device sample rate
         return audio_data.astype(np.float32), sample_rate
 
 
