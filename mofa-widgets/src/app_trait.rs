@@ -59,7 +59,7 @@
 //! }
 //! ```
 
-use makepad_widgets::Cx;
+use makepad_widgets::{Cx, LiveId, Action, live_id, ButtonAction, WidgetActionCast};
 
 /// Metadata about a registered app
 #[derive(Clone, Debug)]
@@ -70,6 +70,130 @@ pub struct AppInfo {
     pub id: &'static str,
     /// Description of the app
     pub description: &'static str,
+    /// LiveId for the sidebar tab button (for click detection)
+    pub tab_id: Option<LiveId>,
+    /// LiveId for the page view (for visibility control)
+    pub page_id: Option<LiveId>,
+    /// Whether this app is shown in the main sidebar (vs settings/system apps)
+    pub show_in_sidebar: bool,
+}
+
+impl Default for AppInfo {
+    fn default() -> Self {
+        Self {
+            name: "",
+            id: "",
+            description: "",
+            tab_id: None,
+            page_id: None,
+            show_in_sidebar: true,
+        }
+    }
+}
+
+/// Page identifiers for routing
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum PageId {
+    /// MoFA FM main app
+    MofaFM,
+    /// Debate app
+    Debate,
+    /// Settings page
+    Settings,
+    /// Generic app page (for demo apps)
+    App,
+}
+
+impl PageId {
+    /// Get the LiveId for this page's tab button
+    pub fn tab_live_id(&self) -> LiveId {
+        match self {
+            PageId::MofaFM => live_id!(mofa_fm_tab),
+            PageId::Debate => live_id!(debate_tab),
+            PageId::Settings => live_id!(settings_tab),
+            PageId::App => live_id!(app_tab),
+        }
+    }
+
+    /// Get the LiveId for this page's view
+    pub fn page_live_id(&self) -> LiveId {
+        match self {
+            PageId::MofaFM => live_id!(fm_page),
+            PageId::Debate => live_id!(debate_page),
+            PageId::Settings => live_id!(settings_page),
+            PageId::App => live_id!(app_page),
+        }
+    }
+}
+
+/// Router for managing page visibility and navigation
+///
+/// Centralizes page switching logic to avoid repetitive visibility code.
+#[derive(Default)]
+pub struct PageRouter {
+    /// Currently active page
+    current_page: Option<PageId>,
+    /// All registered pages
+    pages: Vec<PageId>,
+}
+
+impl PageRouter {
+    pub fn new() -> Self {
+        Self {
+            current_page: Some(PageId::MofaFM), // Default to FM
+            pages: vec![PageId::MofaFM, PageId::Debate, PageId::Settings, PageId::App],
+        }
+    }
+
+    /// Get the current active page
+    pub fn current(&self) -> Option<PageId> {
+        self.current_page
+    }
+
+    /// Navigate to a page, returns true if page changed
+    pub fn navigate_to(&mut self, page: PageId) -> bool {
+        if self.current_page == Some(page) {
+            return false;
+        }
+        self.current_page = Some(page);
+        true
+    }
+
+    /// Get all pages that should be hidden (all except current)
+    pub fn pages_to_hide(&self) -> impl Iterator<Item = PageId> + '_ {
+        self.pages.iter().copied().filter(move |p| Some(*p) != self.current_page)
+    }
+
+    /// Check if any registered tab was clicked in actions (uses path-based detection)
+    /// Returns the PageId if a tab click was detected
+    pub fn check_tab_click(&self, actions: &[Action]) -> Option<PageId> {
+        for action in actions {
+            if let Some(wa) = action.as_widget_action() {
+                if let ButtonAction::Clicked(_) = wa.cast() {
+                    // Check each page's tab_id against the action path
+                    for page in &self.pages {
+                        let tab_id = page.tab_live_id();
+                        if wa.path.data.iter().any(|id| *id == tab_id) {
+                            return Some(*page);
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
+/// Helper to check if a specific tab was clicked using path-based detection
+/// This avoids WidgetUid mismatch issues with nested widgets
+pub fn tab_clicked(actions: &[Action], tab_id: LiveId) -> bool {
+    actions.iter().filter_map(|a| a.as_widget_action()).any(|wa| {
+        if let ButtonAction::Clicked(_) = wa.cast() {
+            wa.path.data.iter().any(|id| *id == tab_id)
+        } else {
+            false
+        }
+    })
 }
 
 /// Trait for apps that integrate with MoFA Studio shell
@@ -182,4 +306,130 @@ pub trait StateChangeListener {
     /// * `cx` - Makepad context for applying UI updates
     /// * `dark_mode` - Dark mode value (0.0 = light, 1.0 = dark)
     fn on_dark_mode_change(&self, cx: &mut Cx, dark_mode: f64);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_app_info(id: &'static str) -> AppInfo {
+        AppInfo {
+            name: "Test App",
+            id,
+            description: "A test app for unit tests",
+        }
+    }
+
+    #[test]
+    fn test_app_info_fields() {
+        let info = AppInfo {
+            name: "MoFA FM",
+            id: "mofa-fm",
+            description: "AI-powered audio streaming",
+        };
+
+        assert_eq!(info.name, "MoFA FM");
+        assert_eq!(info.id, "mofa-fm");
+        assert_eq!(info.description, "AI-powered audio streaming");
+    }
+
+    #[test]
+    fn test_app_info_clone() {
+        let info = create_test_app_info("test-app");
+        let cloned = info.clone();
+
+        assert_eq!(cloned.name, info.name);
+        assert_eq!(cloned.id, info.id);
+        assert_eq!(cloned.description, info.description);
+    }
+
+    #[test]
+    fn test_app_registry_new() {
+        let registry = AppRegistry::new();
+
+        assert!(registry.is_empty());
+        assert_eq!(registry.len(), 0);
+    }
+
+    #[test]
+    fn test_app_registry_default() {
+        let registry = AppRegistry::default();
+
+        assert!(registry.is_empty());
+        assert_eq!(registry.len(), 0);
+    }
+
+    #[test]
+    fn test_app_registry_register() {
+        let mut registry = AppRegistry::new();
+
+        registry.register(create_test_app_info("app1"));
+        assert_eq!(registry.len(), 1);
+        assert!(!registry.is_empty());
+
+        registry.register(create_test_app_info("app2"));
+        assert_eq!(registry.len(), 2);
+    }
+
+    #[test]
+    fn test_app_registry_apps() {
+        let mut registry = AppRegistry::new();
+        registry.register(create_test_app_info("app1"));
+        registry.register(create_test_app_info("app2"));
+
+        let apps = registry.apps();
+        assert_eq!(apps.len(), 2);
+        assert_eq!(apps[0].id, "app1");
+        assert_eq!(apps[1].id, "app2");
+    }
+
+    #[test]
+    fn test_app_registry_find_by_id() {
+        let mut registry = AppRegistry::new();
+        registry.register(AppInfo {
+            name: "First App",
+            id: "first",
+            description: "The first app",
+        });
+        registry.register(AppInfo {
+            name: "Second App",
+            id: "second",
+            description: "The second app",
+        });
+
+        // Found
+        let found = registry.find_by_id("first");
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().name, "First App");
+
+        let found = registry.find_by_id("second");
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().name, "Second App");
+
+        // Not found
+        assert!(registry.find_by_id("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_app_registry_find_by_id_empty() {
+        let registry = AppRegistry::new();
+
+        assert!(registry.find_by_id("any").is_none());
+    }
+
+    #[test]
+    fn test_app_registry_len_and_is_empty() {
+        let mut registry = AppRegistry::new();
+
+        assert!(registry.is_empty());
+        assert_eq!(registry.len(), 0);
+
+        registry.register(create_test_app_info("app1"));
+        assert!(!registry.is_empty());
+        assert_eq!(registry.len(), 1);
+
+        registry.register(create_test_app_info("app2"));
+        registry.register(create_test_app_info("app3"));
+        assert_eq!(registry.len(), 3);
+    }
 }

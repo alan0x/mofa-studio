@@ -4,6 +4,96 @@
 
 ---
 
+## Apps Overview
+
+MoFA Studio contains two main applications that use Dora dataflows:
+
+### MoFA FM (Voice Chat with Human)
+
+**Purpose:** Interactive voice assistant where users **talk** to AI tutors using their microphone.
+
+**Key Features:**
+- Human voice input via AEC (echo cancellation) + VAD (voice activity detection) + ASR
+- Human can interrupt AI speakers (highest priority)
+- 3 AI participants: Student1, Student2, Tutor
+- Real-time speech-to-text and text-to-speech
+
+**Dataflow:** `apps/mofa-fm/dataflow/voice-chat.yml`
+
+**Architecture:**
+```
+┌─────────────────┐    ┌─────────────┐    ┌───────────────────┐
+│  mofa-mic-input │ -> │     ASR     │ -> │  All 3 Bridges    │
+│  (AEC + VAD)    │    │  (FunASR)   │    │  (human input)    │
+└─────────────────┘    └─────────────┘    └───────────────────┘
+         │                                          │
+         ▼                                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Conference Controller                           │
+│  Policy: [(human, 0.001), (tutor, *), (student1, 1), ...]   │
+│  Human has highest priority - can interrupt anytime          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Config Files:** `study_config_student1.toml`, `study_config_student2.toml`, `study_config_tutor.toml`
+
+---
+
+### MoFA Debate (Autonomous AI Debate)
+
+**Purpose:** Watch AI agents debate each other autonomously. User provides a topic via text prompt.
+
+**Key Features:**
+- No human voice input (text prompts only)
+- 3 AI participants with distinct roles:
+  - **Student1 (PRO)** - Argues in favor of the topic
+  - **Student2 (CON)** - Argues against the topic
+  - **Tutor (Judge)** - Moderates, stays neutral, summarizes
+- Turn-based debate with controller-managed speaking order
+
+**Dataflow:** `apps/mofa-debate/dataflow/voice-chat.yml`
+
+**Architecture:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│              Conference Controller                           │
+│  Policy: [(tutor, *), (student2, 1), (student1, 2)]         │
+│  Tutor always speaks, then alternating students              │
+└─────────────────────────────────────────────────────────────┘
+         │                    │                    │
+         ▼                    ▼                    ▼
+┌───────────────┐    ┌───────────────┐    ┌───────────────┐
+│  Student1     │    │  Student2     │    │    Tutor      │
+│  (PRO - GPT)  │    │  (CON - GPT)  │    │  (Judge-GPT)  │
+└───────────────┘    └───────────────┘    └───────────────┘
+```
+
+**Config Files:** `debate_config_pro.toml`, `debate_config_con.toml`, `debate_config_judge.toml`
+
+---
+
+### Key Differences
+
+| Feature | MoFA FM | MoFA Debate |
+|---------|---------|-------------|
+| **Human Voice Input** | Yes (Mic + ASR) | No (text prompts only) |
+| **Use Case** | Interactive voice chat | Autonomous AI debate |
+| **Participants** | 3 AI + 1 Human | 3 AI only |
+| **Human Can Interrupt** | Yes (highest priority) | N/A |
+| **Policy Pattern** | `[(human, 0.001), (tutor, *), ...]` | `[(tutor, *), (student2, 1), (student1, 2)]` |
+| **Dynamic Nodes** | mofa-mic-input, mofa-audio-player, mofa-prompt-input, mofa-system-log | mofa-audio-player-debate, mofa-prompt-input-debate, mofa-system-log-debate |
+| **TTS Voices** | Zhao Daniu, Doubao, Ma Yun | Zhao Daniu, Chen Yifan, Luo Xiang |
+
+### Shared Components
+
+Both apps share:
+- **mofa-ui widgets:** MofaHero, LedMeter, MicButton, AecButton (inline definitions due to Makepad parser limitations)
+- **mofa-ui modules:** AudioManager, log_bridge
+- **mofa-widgets:** ParticipantPanel, LogPanel, theme
+- **mofa-dora-bridge:** SharedDoraState, AudioPlayerBridge, PromptInputBridge, SystemLogBridge
+
+---
+
 ## P0: Critical (Do First) - Blocking Production
 
 ### P0.1 - Buffer Status Measurement ✅ COMPLETE
@@ -602,41 +692,37 @@ apps/mofa-fm/src/screen/
 
 ---
 
-### P1.2 - Widget Duplication Removal
+### P1.2 - Widget Duplication Removal ✅ PHASE 1 DONE
 
 **Problem:** 988 duplicated lines (12% of codebase)
 
-| Component | Location 1 | Location 2 | Lines |
-|-----------|-----------|-----------|-------|
-| ParticipantPanel | shell/widgets/ | mofa-widgets/ | 492 |
-| LogPanel | shell/widgets/ | mofa-widgets/ | 134 |
-| AudioPlayer | mofa-fm/ | conference-dashboard/ | 724 |
+| Component | Location 1 | Location 2 | Lines | Status |
+|-----------|-----------|-----------|-------|--------|
+| ParticipantPanel | shell/widgets/ | mofa-widgets/ | 492 | ✅ Removed from shell |
+| LogPanel | shell/widgets/ | mofa-widgets/ | 134 | ✅ Removed from shell |
+| AudioPlayer | mofa-fm/ | conference-dashboard/ | 724 | 📋 Phase 2 (deferred) |
 
-**Phase 1: Shell Widget Cleanup**
-- [ ] Delete `mofa-studio-shell/src/widgets/participant_panel.rs`
-- [ ] Delete `mofa-studio-shell/src/widgets/log_panel.rs`
-- [ ] Update `mofa-studio-shell/src/widgets/mod.rs` to remove exports
-- [ ] Update imports to use `mofa_widgets::` versions
-- [ ] Verify build
+**Phase 1: Shell Widget Cleanup ✅ DONE**
+- [x] Delete `mofa-studio-shell/src/widgets/participant_panel.rs` - DONE
+- [x] Delete `mofa-studio-shell/src/widgets/log_panel.rs` - DONE
+- [x] Update `mofa-studio-shell/src/widgets/mod.rs` - Has note about mofa_widgets
+- [x] All imports use `mofa_widgets::` versions
+- [x] Build verified
 
-**Phase 2: Audio Player Unification**
+**Current shell widgets** (no duplicates):
+- `dashboard.rs` - Tab system (shell-specific)
+- `sidebar.rs` - Navigation sidebar (shell-specific)
+- `mofa_hero.rs` - Status bar (shell-specific)
+- `tabs.rs` - Tab utilities (shell-specific)
+
+**Phase 2: Audio Player Unification** 📋 DEFERRED
 - [ ] Create `mofa-audio/` shared crate in workspace
 - [ ] Move `apps/mofa-fm/src/audio_player.rs` to `mofa-audio/src/audio_player.rs`
 - [ ] Add smart_reset from conference-dashboard
 - [ ] Add streaming timeout from conference-dashboard
 - [ ] Update `mofa-fm` and `conference-dashboard` to use shared crate
 
-**Recommended Structure:**
-```
-mofa-audio/
-├── Cargo.toml
-└── src/
-    ├── lib.rs
-    ├── audio_player.rs      # Unified circular buffer
-    ├── device_manager.rs    # Device enumeration
-    ├── mic_monitor.rs       # Level monitoring
-    └── smart_reset.rs       # question_id filtering
-```
+*Note: Phase 2 deferred as it requires significant refactoring and conference-dashboard integration.*
 
 ---
 
@@ -661,20 +747,25 @@ struct WaveformView {
 
 ---
 
-### P1.4 - Font Definition Cleanup
+### P1.4 - Font Definition Cleanup ✅ DONE
 
 **Problem:** Same fonts defined in multiple files.
 
-**Audit Command:**
+**Solution:** Already completed in CHECKLIST.md P0.2.
+
+**Verification:**
 ```bash
-rg "FONT_REGULAR|FONT_BOLD|FONT_FAMILY" --type rust
+rg "FONT_REGULAR\s*=|FONT_BOLD\s*=" --type rust
+# Only shows mofa-widgets/src/theme.rs - single source of truth ✅
 ```
 
-**Files to Check:**
-- [ ] `mofa-studio-shell/src/app.rs` - Remove local fonts, import from theme
-- [ ] `mofa-studio-shell/src/widgets/sidebar.rs` - Remove local fonts
-- [ ] `mofa-studio-shell/src/widgets/mofa_hero.rs` - Remove local fonts
-- [ ] Keep only `mofa-widgets/src/theme.rs` as source of truth
+**Status:**
+- [x] `mofa-studio-shell/src/app.rs` - Imports from theme
+- [x] `mofa-studio-shell/src/widgets/sidebar.rs` - Imports from theme
+- [x] `mofa-studio-shell/src/widgets/mofa_hero.rs` - Imports from theme
+- [x] `mofa-widgets/src/theme.rs` - Single source of truth for FONT_REGULAR, FONT_MEDIUM, FONT_SEMIBOLD, FONT_BOLD
+
+**Note:** This was completed as part of the UI refactoring checklist (CHECKLIST.md P0.2 - Font Consolidation).
 
 ---
 
@@ -683,9 +774,9 @@ rg "FONT_REGULAR|FONT_BOLD|FONT_FAMILY" --type rust
 | Task | Status | Impact |
 |------|--------|--------|
 | P1.1 Break Up Large Files | ✅ DONE | screen.rs → 6 files, mod.rs 590 lines |
-| P1.2 Widget Duplication | 📋 TODO | -988 lines |
+| P1.2 Widget Duplication | ✅ PHASE 1 DONE | Shell duplicates removed (-626 lines) |
 | P1.3 Waveform Visualization | 📋 TODO | UX improvement |
-| P1.4 Font Cleanup | 📋 TODO | Single source of truth |
+| P1.4 Font Cleanup | ✅ DONE | Single source of truth (see CHECKLIST.md P0.2) |
 
 ---
 
@@ -926,19 +1017,31 @@ macro_rules! debug_log {
 
 ---
 
-### P2.4 - Settings Persistence
+### P2.4 - Settings Persistence ✅ DONE
 
-**Problem:** Verify all settings persist correctly.
+**Completed (2026-01-10):**
 
-**Settings to Check:**
-- [ ] Dark mode preference saves/loads
-- [ ] Audio device preference saves/loads
-- [ ] API keys save/load (already implemented)
-- [ ] Last-used dataflow path (optional)
+All settings now persist correctly to `~/.dora/dashboard/preferences.json`.
 
-**Files:**
-- [ ] `apps/mofa-settings/src/data/preferences.rs` - Verify persistence
-- [ ] `apps/mofa-fm/src/screen.rs` - Load preferences on startup
+**Settings Verified:**
+- [x] Dark mode preference saves/loads - `app.rs:588-592` saves, `app.rs:327` loads
+- [x] Audio input device saves/loads - Added to Preferences, saved on selection
+- [x] Audio output device saves/loads - Added to Preferences, saved on selection
+- [x] API keys save/load - Already implemented via Provider struct
+
+**Files Modified:**
+- [x] `apps/mofa-settings/src/data/preferences.rs` - Added `audio_input_device`, `audio_output_device` fields
+- [x] `apps/mofa-fm/src/screen/audio_controls.rs` - Load saved devices on init, save on selection
+
+**Preferences JSON Structure:**
+```json
+{
+  "providers": [...],
+  "dark_mode": true,
+  "audio_input_device": "MacBook Pro Microphone",
+  "audio_output_device": "MacBook Pro Speakers"
+}
+```
 
 ---
 
@@ -949,25 +1052,44 @@ macro_rules! debug_log {
 | P2.1 Shared State Pattern | ✅ DONE | Cleaner architecture, ~120 lines dead code removed |
 | P2.2 Debug Logging | ✅ DONE | Only 4 legitimate eprintln! remain |
 | P2.3 System Monitoring | ✅ DONE | Background thread, lock-free atomic reads |
-| P2.4 Settings Persistence | 📋 TODO | User preferences |
+| P2.4 Settings Persistence | ✅ DONE | Dark mode + audio devices saved/restored |
 
 ---
 
 ## P3: Low Priority (Do Later)
 
-### P3.1 - CLI Interface
+### P3.1 - CLI Interface ✅ DONE
 
-**Problem:** mofa-fm lacks CLI arguments.
+**Completed (2026-01-10):**
 
-**Target:**
+Added clap-based CLI argument parsing to mofa-studio-shell.
+
+**Usage:**
 ```bash
-mofa-studio --dataflow voice-chat.yml --node mofa-audio-player --sample-rate 32000
+mofa-studio --help              # Show help
+mofa-studio --version           # Show version
+mofa-studio --dark-mode         # Start in dark mode
+mofa-studio --log-level debug   # Enable debug logging
+mofa-studio --dataflow path.yml # Custom dataflow
+mofa-studio --sample-rate 44100 # Custom sample rate
+mofa-studio --width 1600 --height 1000  # Custom window size
 ```
 
-**Files to Modify:**
-- [ ] Add clap/structopt to `apps/mofa-fm/Cargo.toml`
-- [ ] Parse args in startup
-- [ ] Pass to DoraIntegration
+**Files Created/Modified:**
+- [x] `mofa-studio-shell/Cargo.toml` - Added clap 4.4 with derive feature
+- [x] `mofa-studio-shell/src/cli.rs` - NEW: Args struct with documentation
+- [x] `mofa-studio-shell/src/main.rs` - Parse args, configure logging
+- [x] `mofa-studio-shell/src/app.rs` - OnceLock storage, dark mode override
+
+**Available Options:**
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-d, --dataflow` | None | Path to dataflow YAML |
+| `--sample-rate` | 32000 | Audio sample rate |
+| `--dark-mode` | false | Start in dark mode |
+| `--log-level` | info | Log verbosity |
+| `--width` | 1400 | Window width |
+| `--height` | 900 | Window height |
 
 ---
 
@@ -1028,13 +1150,29 @@ mod tests {
 
 ---
 
-### P3.4 - API Documentation
+### P3.4 - API Documentation ✅ DONE
 
-**Files to Document:**
-- [ ] `mofa-dora-bridge/src/lib.rs` - Crate overview
-- [ ] `mofa-dora-bridge/src/bridge.rs` - Bridge trait
-- [ ] `mofa-dora-bridge/src/widgets/*.rs` - Each bridge widget
-- [ ] Signal flow diagram in `MOFA_DORA_ARCHITECTURE.md`
+**Completed (2026-01-10):**
+
+Comprehensive rustdoc documentation added to `mofa-dora-bridge` crate:
+
+- [x] `mofa-dora-bridge/src/lib.rs` - Crate overview with architecture diagram, usage examples
+- [x] `mofa-dora-bridge/src/bridge.rs` - Bridge trait with state machine diagram
+- [x] `mofa-dora-bridge/src/shared_state.rs` - DirtyVec, DirtyValue, ChatState, AudioState, SharedDoraState
+- [x] `mofa-dora-bridge/src/data.rs` - AudioData, ChatMessage, LogEntry, ControlCommand
+
+**Documentation Features:**
+- Architecture diagrams (ASCII art in rustdoc)
+- Code examples for all major types
+- Design principle explanations
+- Thread safety notes
+- Streaming consolidation explanation
+
+**Verification:**
+```bash
+cargo doc --package mofa-dora-bridge --no-deps
+# Generated: target/doc/mofa_dora_bridge/index.html
+```
 
 ---
 
@@ -1042,10 +1180,10 @@ mod tests {
 
 | Task | Status | Impact |
 |------|--------|--------|
-| P3.1 CLI Interface | 📋 TODO | Flexibility |
-| P3.2 Git Tracking | 📋 TODO | Version control |
+| P3.1 CLI Interface | ✅ DONE | clap-based args: --dark-mode, --log-level, etc. |
+| P3.2 Git Tracking | ✅ DONE | Already tracked in git |
 | P3.3 Testing | 📋 TODO | Reliability |
-| P3.4 Documentation | 📋 TODO | Maintainability |
+| P3.4 Documentation | ✅ DONE | Comprehensive rustdoc for mofa-dora-bridge |
 
 ---
 
@@ -1084,34 +1222,61 @@ mod tests {
 
 ## Quick Reference: Key Files
 
-### Dora Bridge Layer
+### Dora Bridge Layer (Shared)
 | File | Purpose | Lines |
 |------|---------|-------|
 | `mofa-dora-bridge/src/widgets/audio_player.rs` | Audio bridge, signals | ~600 |
 | `mofa-dora-bridge/src/widgets/prompt_input.rs` | Chat, control commands | ~430 |
 | `mofa-dora-bridge/src/widgets/system_log.rs` | Log aggregation | ~360 |
+| `mofa-dora-bridge/src/widgets/aec_input.rs` | AEC mic input bridge (FM only) | ~550 |
 | `mofa-dora-bridge/src/shared_state.rs` | SharedDoraState, DirtyVec | ~547 |
 
 *Note: `participant_panel.rs` was deleted in P0.8 - LED visualization now calculated from output waveform*
 
-### Audio Layer
+### Shared UI Infrastructure (mofa-ui)
 | File | Purpose | Lines |
 |------|---------|-------|
-| `apps/mofa-fm/src/audio_player.rs` | Circular buffer, CPAL | ~360 |
-| `apps/mofa-fm/src/audio.rs` | Device enum, mic monitor | ~230 |
+| `mofa-ui/src/audio.rs` | AudioManager, device enum, mic monitor | ~233 |
+| `mofa-ui/src/log_bridge.rs` | Rust log capture for UI display | ~123 |
+| `mofa-ui/src/system_monitor.rs` | Background CPU/memory/GPU monitor | ~150 |
+| `mofa-ui/src/widgets/mofa_hero.rs` | MofaHero status bar widget | ~400 |
+| `mofa-ui/src/widgets/led_meter.rs` | LED level meter widget | ~245 |
+| `mofa-ui/src/widgets/mic_button.rs` | Mic toggle button widget | ~200 |
+| `mofa-ui/src/widgets/aec_button.rs` | AEC toggle button widget | ~220 |
 
-### UI Layer
+*Note: LED/Mic/AEC widgets have inline definitions in app design.rs due to Makepad parser limitations with `link::theme::*` imports*
+
+### MoFA FM (Voice Chat)
 | File | Purpose | Lines |
 |------|---------|-------|
 | `apps/mofa-fm/src/screen/mod.rs` | Main screen struct, Widget impl | ~590 |
-| `apps/mofa-fm/src/screen/design.rs` | live_design! UI layout | ~1085 |
-| `apps/mofa-fm/src/mofa_hero.rs` | Status bar | ~730 |
-| `apps/mofa-fm/src/system_monitor.rs` | Background CPU/memory monitor | ~85 |
+| `apps/mofa-fm/src/screen/design.rs` | live_design! UI layout (inline widgets) | ~1250 |
+| `apps/mofa-fm/src/screen/audio_controls.rs` | Audio device selection, mic monitoring | ~150 |
+| `apps/mofa-fm/src/screen/chat_panel.rs` | Chat display, prompt input | ~115 |
+| `apps/mofa-fm/src/screen/log_panel.rs` | Log display, filtering | ~175 |
+| `apps/mofa-fm/src/screen/dora_handlers.rs` | Dora event handling, dataflow control | ~330 |
+| `apps/mofa-fm/src/audio_player.rs` | Circular buffer, CPAL playback | ~360 |
+| `apps/mofa-fm/src/dora_integration.rs` | Dora lifecycle management | ~400 |
 
-### Configuration
+### MoFA Debate (AI Debate)
+| File | Purpose | Lines |
+|------|---------|-------|
+| `apps/mofa-debate/src/screen/mod.rs` | Main screen struct, Widget impl | ~590 |
+| `apps/mofa-debate/src/screen/design.rs` | live_design! UI layout (inline widgets) | ~800 |
+| `apps/mofa-debate/src/screen/audio_controls.rs` | Audio device selection | ~150 |
+| `apps/mofa-debate/src/screen/chat_panel.rs` | Chat display, prompt input | ~115 |
+| `apps/mofa-debate/src/screen/log_panel.rs` | Log display, filtering | ~175 |
+| `apps/mofa-debate/src/screen/dora_handlers.rs` | Dora event handling | ~300 |
+| `apps/mofa-debate/src/audio_player.rs` | Circular buffer, CPAL playback | ~360 |
+| `apps/mofa-debate/src/dora_integration.rs` | Dora lifecycle management | ~350 |
+
+### Configuration / Dataflows
 | File | Purpose |
 |------|---------|
-| `apps/mofa-fm/dataflow/voice-chat.yml` | Dataflow definition |
+| `apps/mofa-fm/dataflow/voice-chat.yml` | FM dataflow (with human mic input) |
+| `apps/mofa-fm/dataflow/study_config_*.toml` | FM role configs (student1, student2, tutor) |
+| `apps/mofa-debate/dataflow/voice-chat.yml` | Debate dataflow (AI-only) |
+| `apps/mofa-debate/dataflow/debate_config_*.toml` | Debate role configs (pro, con, judge) |
 | `MOFA_DORA_ARCHITECTURE.md` | Architecture diagram |
 
 ---
@@ -1128,11 +1293,11 @@ mod tests {
 
 ---
 
-*Last Updated: 2026-01-10*
+*Last Updated: 2026-01-18*
 *P0 Progress: 8/8 complete ✅*
-*P1 Progress: 1/4 complete*
-*P2 Progress: 3/4 complete*
-*P3 Progress: 0/4 complete*
+*P1 Progress: 3/4 complete*
+*P2 Progress: 4/4 complete ✅*
+*P3 Progress: 3/4 complete*
 
 **Completed P0 Items:** (All done!)
 - ✅ P0.1 Buffer Status Measurement
@@ -1146,18 +1311,35 @@ mod tests {
 
 **Completed P1 Items:**
 - ✅ P1.1 Code Organization (screen.rs → 6 files, live_design! to design.rs)
+- ✅ P1.2 Widget Duplication Phase 1 (shell duplicates removed)
+- ✅ P1.4 Font Definition Cleanup (see CHECKLIST.md P0.2)
 
-**Completed P2 Items:**
+**Completed P2 Items:** (All done!)
 - ✅ P2.1 SharedDoraState Architecture (removed ~120 lines dead code)
 - ✅ P2.2 Debug Logging (only 4 legitimate eprintln! remain)
 - ✅ P2.3 System Monitoring (background thread, atomic reads)
+- ✅ P2.4 Settings Persistence (dark mode + audio devices)
+
+**Completed P3 Items:**
+- ✅ P3.1 CLI Interface (clap-based args: --dark-mode, --log-level, --dataflow)
+- ✅ P3.2 Git Tracking (mofa-dora-bridge already tracked)
+- ✅ P3.4 API Documentation (comprehensive rustdoc for mofa-dora-bridge)
+
+**Widget Consolidation Status (2026-01-18):**
+- ✅ `mofa-ui/src/audio.rs` - Shared AudioManager (moved from both apps)
+- ✅ `mofa-ui/src/log_bridge.rs` - Shared log capture (moved from both apps)
+- ✅ `mofa-ui/src/system_monitor.rs` - Shared system monitor
+- ✅ `mofa-ui/src/widgets/mofa_hero.rs` - Shared MofaHero widget
+- ⚠️ `mofa-ui/src/widgets/led_meter.rs` - Defined but **inline required** in apps
+- ⚠️ `mofa-ui/src/widgets/mic_button.rs` - Defined but **inline required** in apps
+- ⚠️ `mofa-ui/src/widgets/aec_button.rs` - Defined but **inline required** in apps
+
+*Note: LED/Mic/AEC widgets must use inline definitions in each app's design.rs due to Makepad live_design parser "Unexpected token #" error when importing `link::theme::*` in shared widget modules. The Rust WidgetExt traits from mofa-ui work correctly; only the live_design! visual definitions need to be inline.*
 
 **Remaining Items:**
-- P1.2 Widget Duplication Removal
 - P1.3 Waveform Visualization
-- P1.4 Font Definition Cleanup
-- P2.4 Settings Persistence
-- P3.x Low priority items
+- P3.3 Testing Infrastructure
 
 **Next Action:**
-1. P1.2 Remove duplicate widgets (shell vs mofa-widgets)
+1. P1.3 Waveform Visualization (port from conference-dashboard)
+2. P3.3 Testing Infrastructure (unit tests for pure logic)
