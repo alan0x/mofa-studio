@@ -1,8 +1,7 @@
 nodes:
-  - id: mofa-prompt-input-tts
+  - id: mofa-prompt-input
     path: dynamic
     outputs:
-      - prompt
       - control
 
   - id: kokoro-tts
@@ -10,7 +9,7 @@ nodes:
     path: ../../../node-hub/dora-kokoro-tts/dora_kokoro_tts/main.py
     inputs:
       text:
-        source: mofa-prompt-input-tts/control
+        source: mofa-prompt-input/control
         queue_size: 10
     outputs:
       - audio
@@ -20,7 +19,7 @@ nodes:
       HF_ENDPOINT: https://hf-mirror.com
       KOKORO_MODEL_CPU: hexgrad/Kokoro-82M
 
-  - id: mofa-audio-player-tts
+  - id: mofa-audio-player
     path: dynamic
     inputs:
       audio: kokoro-tts/audio
