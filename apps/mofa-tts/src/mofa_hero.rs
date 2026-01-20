@@ -227,21 +227,24 @@ live_design! {
     // Status section template - equal width for all sections
     StatusSection = <RoundedView> {
         width: Fill, height: Fill
-        padding: { left: 12, right: 12, top: 8, bottom: 8 }
+        padding: { left: 12, right: 12, top: 10, bottom: 8 }
         draw_bg: {
             instance dark_mode: 0.0
             border_radius: (HERO_RADIUS)
+            border_size: 1.0
             fn pixel(self) -> vec4 {
                 let sdf = Sdf2d::viewport(self.pos * self.rect_size);
                 let r = self.border_radius;
                 let bg = mix((PANEL_BG), (PANEL_BG_DARK), self.dark_mode);
+                let border = mix((BORDER), (SLATE_600), self.dark_mode);
                 sdf.box(0., 0., self.rect_size.x, self.rect_size.y, r);
                 sdf.fill(bg);
+                sdf.stroke(border, self.border_size);
                 return sdf.result;
             }
         }
         flow: Down
-        spacing: 4
+        spacing: 6
         align: {x: 0.0, y: 0.0}
     }
 
@@ -268,23 +271,27 @@ live_design! {
     }
 
     pub MofaHero = {{MofaHero}} {
-        width: Fill, height: 72
+        width: Fill, height: 68
         flow: Right
         spacing: 8
+        align: {y: 0.5}
 
         // Action section (start/stop toggle) - matches conference-dashboard pattern
         action_section = <RoundedView> {
             width: Fill, height: Fill
-            padding: { left: 12, right: 12, top: 8, bottom: 8 }
+            padding: { left: 12, right: 12, top: 10, bottom: 8 }
             draw_bg: {
                 instance dark_mode: 0.0
                 border_radius: (HERO_RADIUS)
+                border_size: 1.0
                 fn pixel(self) -> vec4 {
                     let sdf = Sdf2d::viewport(self.pos * self.rect_size);
                     let r = self.border_radius;
                     let bg = mix((PANEL_BG), (PANEL_BG_DARK), self.dark_mode);
+                    let border = mix((BORDER), (SLATE_600), self.dark_mode);
                     sdf.box(0., 0., self.rect_size.x, self.rect_size.y, r);
                     sdf.fill(bg);
+                    sdf.stroke(border, self.border_size);
                     return sdf.result;
                 }
             }

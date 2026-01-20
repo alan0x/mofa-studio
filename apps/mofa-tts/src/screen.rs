@@ -20,25 +20,43 @@ live_design! {
 
     // Layout constants
     SECTION_SPACING = 12.0
-    PANEL_RADIUS = 4.0
-    PANEL_PADDING = 12.0
+    PANEL_RADIUS = 6.0
+    PANEL_PADDING = 14.0
 
-    // Splitter handle
+    // Splitter handle for resizing panels
     Splitter = <View> {
-        width: 16, height: Fill
-        margin: { left: 8, right: 8 }
+        width: 12, height: Fill
+        margin: { left: 6, right: 6 }
         align: {x: 0.5, y: 0.5}
         cursor: ColResize
 
         show_bg: true
         draw_bg: {
             instance dark_mode: 0.0
+            instance hover: 0.0
 
             fn pixel(self) -> vec4 {
                 let sdf = Sdf2d::viewport(self.pos * self.rect_size);
-                sdf.rect(7.0, 16.0, 2.0, self.rect_size.y - 32.0);
-                let color = mix((SLATE_300), (SLATE_600), self.dark_mode);
+                // Draw subtle grip dots
+                let dot_y_start = self.rect_size.y * 0.35;
+                let dot_y_end = self.rect_size.y * 0.65;
+                let dot_spacing = 8.0;
+                let num_dots = (dot_y_end - dot_y_start) / dot_spacing;
+                let color = mix(mix((SLATE_300), (SLATE_600), self.dark_mode), (PRIMARY_400), self.hover);
+
+                // Draw vertical dots
+                let y = dot_y_start;
+                sdf.circle(6.0, y, 1.5);
                 sdf.fill(color);
+                sdf.circle(6.0, y + dot_spacing, 1.5);
+                sdf.fill(color);
+                sdf.circle(6.0, y + dot_spacing * 2.0, 1.5);
+                sdf.fill(color);
+                sdf.circle(6.0, y + dot_spacing * 3.0, 1.5);
+                sdf.fill(color);
+                sdf.circle(6.0, y + dot_spacing * 4.0, 1.5);
+                sdf.fill(color);
+
                 return sdf.result;
             }
         }
@@ -46,8 +64,8 @@ live_design! {
 
     // Primary button style
     PrimaryButton = <Button> {
-        width: Fit, height: 44
-        padding: {left: 24, right: 24}
+        width: Fit, height: 42
+        padding: {left: 20, right: 20}
 
         draw_bg: {
             instance dark_mode: 0.0
@@ -60,12 +78,12 @@ live_design! {
                 sdf.box(0.0, 0.0, self.rect_size.x, self.rect_size.y, 8.0);
 
                 let base = mix((PRIMARY_500), (PRIMARY_400), self.dark_mode);
-                let hover = mix((PRIMARY_600), (PRIMARY_300), self.dark_mode);
-                let pressed = mix((PRIMARY_700), (PRIMARY_500), self.dark_mode);
+                let hover_color = mix((PRIMARY_600), (PRIMARY_300), self.dark_mode);
+                let pressed_color = mix((PRIMARY_700), (PRIMARY_500), self.dark_mode);
                 let disabled_color = mix((GRAY_300), (GRAY_600), self.dark_mode);
 
-                let color = mix(base, hover, self.hover);
-                let color = mix(color, pressed, self.pressed);
+                let color = mix(base, hover_color, self.hover);
+                let color = mix(color, pressed_color, self.pressed);
                 let color = mix(color, disabled_color, self.disabled);
 
                 sdf.fill(color);
@@ -74,16 +92,16 @@ live_design! {
         }
 
         draw_text: {
-            text_style: { font_size: 14.0 }
+            text_style: <FONT_SEMIBOLD>{ font_size: 13.0 }
             fn get_color(self) -> vec4 {
                 return (WHITE);
             }
         }
     }
 
-    // Icon button (circular)
+    // Icon button (circular) for stop
     IconButton = <Button> {
-        width: 40, height: 40
+        width: 36, height: 36
         padding: 0
 
         draw_bg: {
@@ -94,11 +112,11 @@ live_design! {
             fn pixel(self) -> vec4 {
                 let sdf = Sdf2d::viewport(self.pos * self.rect_size);
                 let center = self.rect_size * 0.5;
-                sdf.circle(center.x, center.y, 18.0);
+                sdf.circle(center.x, center.y, 17.0);
 
-                let base = mix((SURFACE), (SURFACE_DARK), self.dark_mode);
-                let hover_color = mix((SURFACE_HOVER), (SURFACE_HOVER_DARK), self.dark_mode);
-                let pressed_color = mix((GRAY_200), (GRAY_700), self.dark_mode);
+                let base = mix((SLATE_100), (SLATE_700), self.dark_mode);
+                let hover_color = mix((SLATE_200), (SLATE_600), self.dark_mode);
+                let pressed_color = mix((SLATE_300), (SLATE_500), self.dark_mode);
 
                 let color = mix(base, hover_color, self.hover);
                 let color = mix(color, pressed_color, self.pressed);
@@ -110,16 +128,16 @@ live_design! {
 
         draw_text: {
             instance dark_mode: 0.0
-            text_style: { font_size: 16.0 }
+            text_style: { font_size: 14.0 }
             fn get_color(self) -> vec4 {
-                return mix((TEXT_PRIMARY), (TEXT_PRIMARY_DARK), self.dark_mode);
+                return mix((SLATE_600), (SLATE_300), self.dark_mode);
             }
         }
     }
 
-    // Play button (larger, primary color)
+    // Play button (larger, primary color with play/pause icon)
     PlayButton = <Button> {
-        width: 56, height: 56
+        width: 52, height: 52
         padding: 0
         margin: 0
 
@@ -132,7 +150,7 @@ live_design! {
             fn pixel(self) -> vec4 {
                 let sdf = Sdf2d::viewport(self.pos * self.rect_size);
                 let center = self.rect_size * 0.5;
-                sdf.circle(center.x, center.y, 26.0);
+                sdf.circle(center.x, center.y, 25.0);
 
                 let base = mix((PRIMARY_500), (PRIMARY_400), self.dark_mode);
                 let hover_color = mix((PRIMARY_600), (PRIMARY_300), self.dark_mode);
@@ -146,15 +164,15 @@ live_design! {
                 // Draw play or pause icon
                 if self.is_playing > 0.5 {
                     // Pause icon (two vertical bars)
-                    sdf.rect(19.0, 17.0, 6.0, 22.0);
+                    sdf.rect(18.0, 16.0, 5.0, 20.0);
                     sdf.fill((WHITE));
-                    sdf.rect(31.0, 17.0, 6.0, 22.0);
+                    sdf.rect(29.0, 16.0, 5.0, 20.0);
                     sdf.fill((WHITE));
                 } else {
-                    // Play icon (triangle)
-                    sdf.move_to(22.0, 16.0);
-                    sdf.line_to(38.0, 28.0);
-                    sdf.line_to(22.0, 40.0);
+                    // Play icon (triangle) - slightly offset right for optical center
+                    sdf.move_to(21.0, 15.0);
+                    sdf.line_to(37.0, 26.0);
+                    sdf.line_to(21.0, 37.0);
                     sdf.close_path();
                     sdf.fill((WHITE));
                 }
@@ -191,13 +209,13 @@ live_design! {
             width: Fill, height: Fill
             flow: Right
             spacing: 0
-            padding: { left: 16, right: 16, top: 16, bottom: 16 }
+            padding: { left: 20, right: 20, top: 16, bottom: 16 }
 
             // Left column - main content area (adaptive width)
             left_column = <View> {
                 width: Fill, height: Fill
                 flow: Down
-                spacing: (SECTION_SPACING)
+                spacing: 12
                 align: {y: 0.0}
 
                 // System status bar (MofaHero)
@@ -209,7 +227,7 @@ live_design! {
                 content_area = <View> {
                     width: Fill, height: Fill
                     flow: Right
-                    spacing: (SECTION_SPACING)
+                    spacing: 12
 
                     // Text input section (fills space)
                     input_section = <RoundedView> {
@@ -218,7 +236,7 @@ live_design! {
                         show_bg: true
                         draw_bg: {
                             instance dark_mode: 0.0
-                            border_radius: (PANEL_RADIUS)
+                            border_radius: 6.0
                             border_size: 1.0
                             fn pixel(self) -> vec4 {
                                 let sdf = Sdf2d::viewport(self.pos * self.rect_size);
@@ -231,11 +249,11 @@ live_design! {
                             }
                         }
 
-                        // Header
+                        // Header with title
                         header = <View> {
                             width: Fill, height: Fit
-                            padding: {left: 16, right: 16, top: 12, bottom: 12}
-                            align: {y: 0.5}
+                            padding: {left: 16, right: 16, top: 14, bottom: 14}
+                            align: {x: 0.0, y: 0.5}
                             show_bg: true
                             draw_bg: {
                                 instance dark_mode: 0.0
@@ -261,12 +279,14 @@ live_design! {
                         input_container = <View> {
                             width: Fill, height: Fill
                             flow: Down
-                            padding: 16
+                            padding: {left: 16, right: 16, top: 16, bottom: 12}
 
                             text_input = <TextInput> {
                                 width: Fill, height: Fill
-                                padding: 12
-                                empty_text: "Enter the text you want to convert to speech..."
+                                padding: {left: 14, right: 14, top: 12, bottom: 12}
+                                empty_text: "Enter text to convert to speech..."
+                                text: "你好，我是云间"
+                                ascii_only: false
 
                                 draw_bg: {
                                     instance dark_mode: 0.0
@@ -275,7 +295,7 @@ live_design! {
                                         let sdf = Sdf2d::viewport(self.pos * self.rect_size);
                                         sdf.box(0., 0., self.rect_size.x, self.rect_size.y, self.border_radius);
                                         let bg = mix((WHITE), (SLATE_700), self.dark_mode);
-                                        let border = mix((BORDER), (SLATE_600), self.dark_mode);
+                                        let border = mix((SLATE_200), (SLATE_600), self.dark_mode);
                                         sdf.fill(bg);
                                         sdf.stroke(border, 1.0);
                                         return sdf.result;
@@ -284,25 +304,47 @@ live_design! {
 
                                 draw_text: {
                                     instance dark_mode: 0.0
-                                    text_style: { font_size: 14.0, line_spacing: 1.5 }
+                                    text_style: { font_size: 15.0, line_spacing: 1.6 }
                                     fn get_color(self) -> vec4 {
                                         return mix((TEXT_PRIMARY), (TEXT_PRIMARY_DARK), self.dark_mode);
+                                    }
+                                }
+
+                                draw_cursor: {
+                                    instance focus: 0.0
+                                    uniform border_radius: 0.5
+                                    fn pixel(self) -> vec4 {
+                                        let sdf = Sdf2d::viewport(self.pos * self.rect_size);
+                                        sdf.box(0.0, 0.0, self.rect_size.x, self.rect_size.y, self.border_radius);
+                                        sdf.fill(mix((PRIMARY_500), (PRIMARY_500), self.focus));
+                                        return sdf.result;
+                                    }
+                                }
+
+                                draw_selection: {
+                                    instance focus: 0.0
+                                    fn pixel(self) -> vec4 {
+                                        let sdf = Sdf2d::viewport(self.pos * self.rect_size);
+                                        sdf.box(0.0, 0.0, self.rect_size.x, self.rect_size.y, 1.0);
+                                        sdf.fill(mix(vec4(0.23, 0.51, 0.97, 0.2), vec4(0.23, 0.51, 0.97, 0.35), self.focus));
+                                        return sdf.result;
                                     }
                                 }
                             }
                         }
 
-                        // Bottom bar
+                        // Bottom bar with character count and generate button
                         bottom_bar = <View> {
                             width: Fill, height: Fit
                             flow: Right
-                            align: {y: 0.5}
-                            padding: {left: 16, right: 16, bottom: 16}
+                            align: {x: 0.0, y: 0.5}
+                            padding: {left: 16, right: 16, top: 4, bottom: 16}
                             spacing: 16
 
                             // Character count
                             char_count = <Label> {
                                 width: Fit, height: Fit
+                                align: {y: 0.5}
                                 draw_text: {
                                     instance dark_mode: 0.0
                                     text_style: { font_size: 12.0 }
@@ -310,7 +352,7 @@ live_design! {
                                         return mix((TEXT_TERTIARY), (TEXT_TERTIARY_DARK), self.dark_mode);
                                     }
                                 }
-                                text: "0 / 5,000 characters"
+                                text: "8 / 5,000 characters"
                             }
 
                             <View> { width: Fill, height: 1 }
@@ -324,7 +366,7 @@ live_design! {
 
                     // Voice selector panel (fixed width)
                     controls_panel = <View> {
-                        width: 320, height: Fill
+                        width: 280, height: Fill
                         flow: Down
 
                         // Voice selector (fills available space)
@@ -334,7 +376,7 @@ live_design! {
                             show_bg: true
                             draw_bg: {
                                 instance dark_mode: 0.0
-                                border_radius: (PANEL_RADIUS)
+                                border_radius: 6.0
                                 border_size: 1.0
                                 fn pixel(self) -> vec4 {
                                     let sdf = Sdf2d::viewport(self.pos * self.rect_size);
@@ -355,12 +397,12 @@ live_design! {
                 }
             }
 
-            // Splitter
+            // Splitter handle for resizing
             splitter = <Splitter> {}
 
             // Right Panel: System Log
             log_section = <View> {
-                width: 320, height: Fill
+                width: 300, height: Fill
                 flow: Right
                 align: {y: 0.0}
 
@@ -371,20 +413,20 @@ live_design! {
                     draw_bg: {
                         instance dark_mode: 0.0
                         fn pixel(self) -> vec4 {
-                            return mix((SLATE_50), (SLATE_800), self.dark_mode);
+                            return mix((SLATE_100), (SLATE_800), self.dark_mode);
                         }
                     }
                     align: {x: 0.5, y: 0.0}
-                    padding: {left: 4, right: 4, top: 8}
+                    padding: {left: 4, right: 4, top: 12}
 
                     toggle_log_btn = <Button> {
                         width: Fit, height: Fit
-                        padding: {left: 8, right: 8, top: 6, bottom: 6}
+                        padding: {left: 6, right: 6, top: 8, bottom: 8}
                         text: ">"
 
                         draw_text: {
                             instance dark_mode: 0.0
-                            text_style: <FONT_BOLD>{ font_size: 11.0 }
+                            text_style: <FONT_BOLD>{ font_size: 10.0 }
                             fn get_color(self) -> vec4 {
                                 return mix((SLATE_500), (SLATE_400), self.dark_mode);
                             }
@@ -408,14 +450,21 @@ live_design! {
                     }
                 }
 
-                // Log content panel
+                // Log content panel with border
                 log_content_column = <RoundedView> {
                     width: Fill, height: Fill
                     draw_bg: {
                         instance dark_mode: 0.0
-                        border_radius: (PANEL_RADIUS)
-                        fn get_color(self) -> vec4 {
-                            return mix((PANEL_BG), (PANEL_BG_DARK), self.dark_mode);
+                        border_radius: 6.0
+                        border_size: 1.0
+                        fn pixel(self) -> vec4 {
+                            let sdf = Sdf2d::viewport(self.pos * self.rect_size);
+                            sdf.box(0., 0., self.rect_size.x, self.rect_size.y, self.border_radius);
+                            let bg = mix((PANEL_BG), (PANEL_BG_DARK), self.dark_mode);
+                            let border = mix((BORDER), (SLATE_600), self.dark_mode);
+                            sdf.fill(bg);
+                            sdf.stroke(border, self.border_size);
+                            return sdf.result;
                         }
                     }
                     flow: Down
@@ -433,15 +482,15 @@ live_design! {
 
                         log_title_row = <View> {
                             width: Fill, height: Fit
-                            padding: {left: 12, right: 12, top: 10, bottom: 6}
+                            padding: {left: 14, right: 14, top: 12, bottom: 12}
                             flow: Right
-                            align: {y: 0.5}
+                            align: {x: 0.0, y: 0.5}
 
                             log_title_label = <Label> {
                                 text: "System Log"
                                 draw_text: {
                                     instance dark_mode: 0.0
-                                    text_style: <FONT_SEMIBOLD>{ font_size: 13.0 }
+                                    text_style: <FONT_SEMIBOLD>{ font_size: 14.0 }
                                     fn get_color(self) -> vec4 {
                                         return mix((TEXT_PRIMARY), (TEXT_PRIMARY_DARK), self.dark_mode);
                                     }
@@ -451,20 +500,28 @@ live_design! {
                             <View> { width: Fill, height: 1 }
 
                             clear_log_btn = <Button> {
-                                width: Fit, height: 24
-                                padding: {left: 8, right: 8}
+                                width: Fit, height: 26
+                                padding: {left: 10, right: 10}
                                 text: "Clear"
                                 draw_bg: {
                                     instance dark_mode: 0.0
+                                    instance hover: 0.0
                                     border_radius: 4.0
                                     fn pixel(self) -> vec4 {
-                                        let bg = mix((GRAY_200), (GRAY_700), self.dark_mode);
-                                        return bg;
+                                        let sdf = Sdf2d::viewport(self.pos * self.rect_size);
+                                        sdf.box(0., 0., self.rect_size.x, self.rect_size.y, self.border_radius);
+                                        let base = mix((SLATE_100), (SLATE_700), self.dark_mode);
+                                        let hover_color = mix((SLATE_200), (SLATE_600), self.dark_mode);
+                                        sdf.fill(mix(base, hover_color, self.hover));
+                                        return sdf.result;
                                     }
                                 }
                                 draw_text: {
+                                    instance dark_mode: 0.0
                                     text_style: { font_size: 11.0 }
-                                    color: #666
+                                    fn get_color(self) -> vec4 {
+                                        return mix((SLATE_600), (SLATE_300), self.dark_mode);
+                                    }
                                 }
                             }
                         }
@@ -480,27 +537,27 @@ live_design! {
 
                         log_content_wrapper = <View> {
                             width: Fill, height: Fit
-                            padding: { left: 12, right: 12, top: 8, bottom: 8 }
+                            padding: { left: 14, right: 14, top: 10, bottom: 10 }
                             flow: Down
 
                             log_content = <Markdown> {
                                 width: Fill, height: Fit
-                                font_size: 10.0
+                                font_size: 11.0
                                 font_color: (GRAY_600)
-                                paragraph_spacing: 4
+                                paragraph_spacing: 6
 
                                 draw_normal: {
                                     instance dark_mode: 0.0
-                                    text_style: <FONT_REGULAR>{ font_size: 10.0 }
+                                    text_style: <FONT_REGULAR>{ font_size: 11.0 }
                                     fn get_color(self) -> vec4 {
-                                        return mix((GRAY_600), (TEXT_PRIMARY_DARK), self.dark_mode);
+                                        return mix((SLATE_600), (TEXT_SECONDARY_DARK), self.dark_mode);
                                     }
                                 }
                                 draw_bold: {
                                     instance dark_mode: 0.0
-                                    text_style: <FONT_SEMIBOLD>{ font_size: 10.0 }
+                                    text_style: <FONT_SEMIBOLD>{ font_size: 11.0 }
                                     fn get_color(self) -> vec4 {
-                                        return mix((GRAY_600), (TEXT_PRIMARY_DARK), self.dark_mode);
+                                        return mix((SLATE_700), (TEXT_PRIMARY_DARK), self.dark_mode);
                                     }
                                 }
                             }
@@ -512,11 +569,11 @@ live_design! {
 
         // Bottom audio player bar (like minimax)
         audio_player_bar = <View> {
-            width: Fill, height: 88
+            width: Fill, height: 80
             flow: Right
-            align: {y: 0.5}
-            padding: {left: 24, right: 24, top: 16, bottom: 16}
-            spacing: 24
+            align: {x: 0.5, y: 0.5}
+            padding: {left: 24, right: 24, top: 12, bottom: 12}
+            spacing: 0
 
             show_bg: true
             draw_bg: {
@@ -535,19 +592,20 @@ live_design! {
                 }
             }
 
-            // Left: Voice info
+            // Left: Voice info (fixed width for balance)
             voice_info = <View> {
-                width: 200, height: Fit
+                width: 220, height: Fill
                 flow: Right
-                align: {y: 0.5}
+                align: {x: 0.0, y: 0.5}
                 spacing: 12
 
                 // Voice avatar
                 voice_avatar = <RoundedView> {
-                    width: 44, height: 44
+                    width: 48, height: 48
+                    align: {x: 0.5, y: 0.5}
                     draw_bg: {
                         instance dark_mode: 0.0
-                        border_radius: 8.0
+                        border_radius: 10.0
                         fn pixel(self) -> vec4 {
                             let sdf = Sdf2d::viewport(self.pos * self.rect_size);
                             sdf.box(0., 0., self.rect_size.x, self.rect_size.y, self.border_radius);
@@ -566,7 +624,7 @@ live_design! {
                                 return (WHITE);
                             }
                         }
-                        text: "L"
+                        text: "z"
                     }
                 }
 
@@ -574,47 +632,48 @@ live_design! {
                 voice_name_container = <View> {
                     width: Fit, height: Fit
                     flow: Down
-                    spacing: 2
+                    align: {y: 0.5}
+                    spacing: 4
 
                     current_voice_name = <Label> {
                         width: Fit, height: Fit
                         draw_text: {
                             instance dark_mode: 0.0
-                            text_style: <FONT_SEMIBOLD>{ font_size: 13.0 }
+                            text_style: <FONT_SEMIBOLD>{ font_size: 14.0 }
                             fn get_color(self) -> vec4 {
                                 return mix((TEXT_PRIMARY), (TEXT_PRIMARY_DARK), self.dark_mode);
                             }
                         }
-                        text: "Luo Xiang"
+                        text: "zf_xiaoni"
                     }
 
                     status_label = <Label> {
                         width: Fit, height: Fit
                         draw_text: {
                             instance dark_mode: 0.0
-                            text_style: { font_size: 11.0 }
+                            text_style: { font_size: 12.0 }
                             fn get_color(self) -> vec4 {
                                 return mix((TEXT_TERTIARY), (TEXT_TERTIARY_DARK), self.dark_mode);
                             }
                         }
-                        text: "Ready"
+                        text: "Playing"
                     }
                 }
             }
 
-            // Center: Playback controls
+            // Center: Playback controls (fills space)
             playback_controls = <View> {
-                width: Fill, height: Fit
+                width: Fill, height: Fill
                 flow: Down
                 align: {x: 0.5, y: 0.5}
-                spacing: 8
+                spacing: 10
 
-                // Control buttons row
+                // Control buttons row - centered
                 controls_row = <View> {
-                    width: Fit, height: Fit
+                    width: Fill, height: Fit
                     flow: Right
                     align: {x: 0.5, y: 0.5}
-                    spacing: 16
+                    spacing: 12
 
                     // Play/Pause button
                     play_btn = <PlayButton> {
@@ -627,18 +686,19 @@ live_design! {
                     }
                 }
 
-                // Progress bar row
+                // Progress bar row - centered with fixed max width
                 progress_row = <View> {
-                    width: 480, height: Fit
+                    width: Fill, height: Fit
                     flow: Right
-                    align: {y: 0.5}
-                    spacing: 12
+                    align: {x: 0.5, y: 0.5}
+                    spacing: 10
 
                     current_time = <Label> {
-                        width: 45, height: Fit
+                        width: 50, height: Fit
+                        align: {x: 1.0, y: 0.5}
                         draw_text: {
                             instance dark_mode: 0.0
-                            text_style: { font_size: 11.0 }
+                            text_style: { font_size: 12.0 }
                             fn get_color(self) -> vec4 {
                                 return mix((TEXT_TERTIARY), (TEXT_TERTIARY_DARK), self.dark_mode);
                             }
@@ -646,50 +706,57 @@ live_design! {
                         text: "00:00"
                     }
 
-                    // Progress bar
-                    progress_bar = <View> {
-                        width: Fill, height: 4
-                        show_bg: true
-                        draw_bg: {
-                            instance dark_mode: 0.0
-                            instance progress: 0.0
-                            fn pixel(self) -> vec4 {
-                                let sdf = Sdf2d::viewport(self.pos * self.rect_size);
-                                // Background track
-                                sdf.box(0.0, 0.0, self.rect_size.x, self.rect_size.y, 2.0);
-                                let track_color = mix((GRAY_200), (GRAY_700), self.dark_mode);
-                                sdf.fill(track_color);
-                                // Progress fill
-                                let progress_width = self.rect_size.x * self.progress;
-                                sdf.box(0.0, 0.0, progress_width, self.rect_size.y, 2.0);
-                                sdf.fill((PRIMARY_500));
-                                return sdf.result;
+                    // Progress bar container
+                    progress_bar_container = <View> {
+                        width: 400, height: 6
+                        align: {y: 0.5}
+
+                        // Progress bar
+                        progress_bar = <View> {
+                            width: Fill, height: Fill
+                            show_bg: true
+                            draw_bg: {
+                                instance dark_mode: 0.0
+                                instance progress: 0.0
+                                fn pixel(self) -> vec4 {
+                                    let sdf = Sdf2d::viewport(self.pos * self.rect_size);
+                                    // Background track
+                                    sdf.box(0.0, 0.0, self.rect_size.x, self.rect_size.y, 3.0);
+                                    let track_color = mix((GRAY_200), (GRAY_700), self.dark_mode);
+                                    sdf.fill(track_color);
+                                    // Progress fill
+                                    let progress_width = self.rect_size.x * self.progress;
+                                    sdf.box(0.0, 0.0, progress_width, self.rect_size.y, 3.0);
+                                    sdf.fill((PRIMARY_500));
+                                    return sdf.result;
+                                }
                             }
                         }
                     }
 
                     total_time = <Label> {
-                        width: 45, height: Fit
+                        width: 50, height: Fit
+                        align: {x: 0.0, y: 0.5}
                         draw_text: {
                             instance dark_mode: 0.0
-                            text_style: { font_size: 11.0 }
+                            text_style: { font_size: 12.0 }
                             fn get_color(self) -> vec4 {
                                 return mix((TEXT_TERTIARY), (TEXT_TERTIARY_DARK), self.dark_mode);
                             }
                         }
-                        text: "00:00"
+                        text: "00:02"
                     }
                 }
             }
 
-            // Right: Download button
+            // Right: Download button (fixed width for balance)
             download_section = <View> {
-                width: Fit, height: Fit
-                align: {y: 0.5}
+                width: 140, height: Fill
+                align: {x: 1.0, y: 0.5}
 
                 download_btn = <Button> {
                     width: Fit, height: 40
-                    padding: {left: 20, right: 20}
+                    padding: {left: 24, right: 24}
                     text: "Download"
 
                     draw_bg: {
@@ -701,10 +768,10 @@ live_design! {
                             let sdf = Sdf2d::viewport(self.pos * self.rect_size);
                             sdf.box(0.0, 0.0, self.rect_size.x, self.rect_size.y, 8.0);
 
-                            // Use primary color with transparency for better contrast
-                            let base = mix(vec4(0.59, 0.60, 0.65, 0.15), vec4(0.59, 0.60, 0.65, 0.25), self.dark_mode);
-                            let hover_color = mix(vec4(0.59, 0.60, 0.65, 0.25), vec4(0.59, 0.60, 0.65, 0.35), self.dark_mode);
-                            let pressed_color = mix(vec4(0.59, 0.60, 0.65, 0.35), vec4(0.59, 0.60, 0.65, 0.45), self.dark_mode);
+                            // Light blue tint background
+                            let base = mix(vec4(0.23, 0.51, 0.97, 0.08), vec4(0.23, 0.51, 0.97, 0.15), self.dark_mode);
+                            let hover_color = mix(vec4(0.23, 0.51, 0.97, 0.15), vec4(0.23, 0.51, 0.97, 0.25), self.dark_mode);
+                            let pressed_color = mix(vec4(0.23, 0.51, 0.97, 0.25), vec4(0.23, 0.51, 0.97, 0.35), self.dark_mode);
                             let border = mix((PRIMARY_400), (PRIMARY_300), self.dark_mode);
 
                             let color = mix(base, hover_color, self.hover);

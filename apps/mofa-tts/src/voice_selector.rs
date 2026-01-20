@@ -13,7 +13,7 @@ live_design! {
     // Voice item in the list
     VoiceItem = <View> {
         width: Fill, height: Fit
-        padding: {left: 16, right: 16, top: 12, bottom: 12}
+        padding: {left: 12, right: 16, top: 10, bottom: 10}
         flow: Right
         align: {y: 0.5}
         spacing: 12
@@ -27,8 +27,8 @@ live_design! {
 
             fn pixel(self) -> vec4 {
                 let base = mix((SURFACE), (SURFACE_DARK), self.dark_mode);
-                let selected_color = mix((PRIMARY_100), (PRIMARY_900), self.dark_mode);
-                let hover_color = mix((SURFACE_HOVER), (SURFACE_HOVER_DARK), self.dark_mode);
+                let selected_color = mix((PRIMARY_50), (PRIMARY_900), self.dark_mode);
+                let hover_color = mix((SLATE_50), (SLATE_800), self.dark_mode);
 
                 let color = mix(base, selected_color, self.selected);
                 let color = mix(color, hover_color, self.hover * (1.0 - self.selected));
@@ -36,16 +36,15 @@ live_design! {
             }
         }
 
-        // Selection indicator
+        // Selection indicator - left edge bar
         selection_indicator = <View> {
-            width: 4, height: Fill
-            margin: {right: 8}
+            width: 3, height: 36
             show_bg: true
             draw_bg: {
                 instance selected: 0.0
                 fn pixel(self) -> vec4 {
                     let sdf = Sdf2d::viewport(self.pos * self.rect_size);
-                    sdf.box(0.0, 0.0, self.rect_size.x, self.rect_size.y, 2.0);
+                    sdf.box(0.0, 0.0, self.rect_size.x, self.rect_size.y, 1.5);
                     let color = mix(vec4(0.0, 0.0, 0.0, 0.0), (PRIMARY_500), self.selected);
                     sdf.fill(color);
                     return sdf.result;
@@ -53,15 +52,16 @@ live_design! {
             }
         }
 
-        // Voice avatar placeholder
+        // Voice avatar - circular with initial
         avatar = <RoundedView> {
-            width: 40, height: 40
+            width: 36, height: 36
+            align: {x: 0.5, y: 0.5}
             draw_bg: {
                 instance dark_mode: 0.0
                 instance selected: 0.0
                 fn pixel(self) -> vec4 {
                     let sdf = Sdf2d::viewport(self.pos * self.rect_size);
-                    sdf.circle(20.0, 20.0, 20.0);
+                    sdf.circle(18.0, 18.0, 18.0);
                     let base_color = mix((PRIMARY_500), (PRIMARY_400), self.dark_mode);
                     let selected_color = mix((PRIMARY_600), (PRIMARY_300), self.dark_mode);
                     let color = mix(base_color, selected_color, self.selected);
@@ -75,7 +75,7 @@ live_design! {
                 width: Fill, height: Fill
                 align: {x: 0.5, y: 0.5}
                 draw_text: {
-                    text_style: { font_size: 16.0 }
+                    text_style: <FONT_SEMIBOLD>{ font_size: 14.0 }
                     fn get_color(self) -> vec4 {
                         return (WHITE);
                     }
@@ -84,21 +84,21 @@ live_design! {
             }
         }
 
-        // Voice info
+        // Voice info - name and description
         info = <View> {
             width: Fill, height: Fit
             flow: Down
-            spacing: 4
+            spacing: 2
 
             name = <Label> {
                 width: Fill, height: Fit
                 draw_text: {
                     instance dark_mode: 0.0
                     instance selected: 0.0
-                    text_style: { font_size: 14.0 }
+                    text_style: <FONT_SEMIBOLD>{ font_size: 13.0 }
                     fn get_color(self) -> vec4 {
                         let base = mix((TEXT_PRIMARY), (TEXT_PRIMARY_DARK), self.dark_mode);
-                        let selected_color = mix((PRIMARY_700), (PRIMARY_300), self.dark_mode);
+                        let selected_color = mix((PRIMARY_600), (PRIMARY_300), self.dark_mode);
                         return mix(base, selected_color, self.selected);
                     }
                 }
@@ -109,9 +109,9 @@ live_design! {
                 width: Fill, height: Fit
                 draw_text: {
                     instance dark_mode: 0.0
-                    text_style: { font_size: 12.0 }
+                    text_style: { font_size: 11.0 }
                     fn get_color(self) -> vec4 {
-                        return mix((TEXT_SECONDARY), (TEXT_SECONDARY_DARK), self.dark_mode);
+                        return mix((TEXT_TERTIARY), (TEXT_TERTIARY_DARK), self.dark_mode);
                     }
                 }
                 text: "Voice description"
@@ -176,17 +176,25 @@ live_design! {
             }
         }
 
-        // Header
+        // Header with title and selected voice indicator
         header = <View> {
             width: Fill, height: Fit
-            padding: {left: 16, right: 16, top: 16, bottom: 12}
+            padding: {left: 16, right: 16, top: 14, bottom: 14}
             flow: Down
-            spacing: 8
+            spacing: 0
+            show_bg: true
+            draw_bg: {
+                instance dark_mode: 0.0
+                fn pixel(self) -> vec4 {
+                    return mix((SLATE_50), (SLATE_800), self.dark_mode);
+                }
+            }
 
             title_row = <View> {
                 width: Fill, height: Fit
                 flow: Right
-                align: {y: 0.5}
+                align: {x: 0.0, y: 0.5}
+                spacing: 8
 
                 title = <Label> {
                     width: Fit, height: Fit
@@ -202,16 +210,33 @@ live_design! {
 
                 <View> { width: Fill, height: 1 }
 
-                selected_voice_label = <Label> {
+                // Selected voice badge
+                selected_voice_badge = <RoundedView> {
                     width: Fit, height: Fit
-                    draw_text: {
+                    padding: {left: 8, right: 8, top: 4, bottom: 4}
+                    draw_bg: {
                         instance dark_mode: 0.0
-                        text_style: { font_size: 11.0 }
-                        fn get_color(self) -> vec4 {
-                            return mix((PRIMARY_600), (PRIMARY_400), self.dark_mode);
+                        border_radius: 4.0
+                        fn pixel(self) -> vec4 {
+                            let sdf = Sdf2d::viewport(self.pos * self.rect_size);
+                            sdf.box(0., 0., self.rect_size.x, self.rect_size.y, self.border_radius);
+                            let bg = mix((PRIMARY_100), (PRIMARY_800), self.dark_mode);
+                            sdf.fill(bg);
+                            return sdf.result;
                         }
                     }
-                    text: "Luo Xiang"
+
+                    selected_voice_label = <Label> {
+                        width: Fit, height: Fit
+                        draw_text: {
+                            instance dark_mode: 0.0
+                            text_style: <FONT_SEMIBOLD>{ font_size: 11.0 }
+                            fn get_color(self) -> vec4 {
+                                return mix((PRIMARY_700), (PRIMARY_200), self.dark_mode);
+                            }
+                        }
+                        text: "小妮 (Xiaoni)"
+                    }
                 }
             }
         }
@@ -228,7 +253,7 @@ live_design! {
             }
         }
 
-        // Voice list
+        // Voice list with scrolling
         voice_list = <PortalList> {
             width: Fill, height: Fill
             flow: Down
@@ -294,8 +319,8 @@ impl Widget for VoiceSelector {
                     let voice_name = self.voices[item_id].name.clone();
                     self.selected_voice_id = Some(voice_id.clone());
 
-                    // Update selected voice label in header
-                    self.view.label(ids!(header.title_row.selected_voice_label)).set_text(cx, &voice_name);
+                    // Update selected voice label in header badge
+                    self.view.label(ids!(header.title_row.selected_voice_badge.selected_voice_label)).set_text(cx, &voice_name);
 
                     cx.widget_action(
                         self.widget_uid(),
@@ -397,13 +422,23 @@ impl VoiceSelectorRef {
                 draw_bg: { dark_mode: (dark_mode) }
             });
 
+            // Header background
+            inner.view.view(ids!(header)).apply_over(cx, live! {
+                draw_bg: { dark_mode: (dark_mode) }
+            });
+
             // Header title
             inner.view.label(ids!(header.title_row.title)).apply_over(cx, live! {
                 draw_text: { dark_mode: (dark_mode) }
             });
 
+            // Selected voice badge
+            inner.view.view(ids!(header.title_row.selected_voice_badge)).apply_over(cx, live! {
+                draw_bg: { dark_mode: (dark_mode) }
+            });
+
             // Selected voice label
-            inner.view.label(ids!(header.title_row.selected_voice_label)).apply_over(cx, live! {
+            inner.view.label(ids!(header.title_row.selected_voice_badge.selected_voice_label)).apply_over(cx, live! {
                 draw_text: { dark_mode: (dark_mode) }
             });
 
