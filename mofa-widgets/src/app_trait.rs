@@ -59,7 +59,7 @@
 //! }
 //! ```
 
-use makepad_widgets::{Cx, LiveId, Action, live_id, ButtonAction, WidgetActionCast};
+use makepad_widgets::{live_id, Action, ButtonAction, Cx, LiveId, WidgetActionCast};
 
 /// Metadata about a registered app
 #[derive(Clone, Debug)]
@@ -98,8 +98,10 @@ pub enum PageId {
     MofaFM,
     /// Debate app
     Debate,
-    /// TTS app
+    /// TTS app (Kokoro)
     TTS,
+    /// PrimeSpeech TTS app (GPT-SoVITS)
+    TTSPrimeSpeech,
     /// Settings page
     Settings,
     /// Generic app page (for demo apps)
@@ -113,6 +115,7 @@ impl PageId {
             PageId::MofaFM => live_id!(mofa_fm_tab),
             PageId::Debate => live_id!(debate_tab),
             PageId::TTS => live_id!(tts_tab),
+            PageId::TTSPrimeSpeech => live_id!(tts_primespeech_tab),
             PageId::Settings => live_id!(settings_tab),
             PageId::App => live_id!(app_tab),
         }
@@ -124,6 +127,7 @@ impl PageId {
             PageId::MofaFM => live_id!(fm_page),
             PageId::Debate => live_id!(debate_page),
             PageId::TTS => live_id!(tts_page),
+            PageId::TTSPrimeSpeech => live_id!(tts_primespeech_page),
             PageId::Settings => live_id!(settings_page),
             PageId::App => live_id!(app_page),
         }
@@ -145,7 +149,14 @@ impl PageRouter {
     pub fn new() -> Self {
         Self {
             current_page: Some(PageId::MofaFM), // Default to FM
-            pages: vec![PageId::MofaFM, PageId::Debate, PageId::TTS, PageId::Settings, PageId::App],
+            pages: vec![
+                PageId::MofaFM,
+                PageId::Debate,
+                PageId::TTS,
+                PageId::TTSPrimeSpeech,
+                PageId::Settings,
+                PageId::App,
+            ],
         }
     }
 
@@ -165,7 +176,10 @@ impl PageRouter {
 
     /// Get all pages that should be hidden (all except current)
     pub fn pages_to_hide(&self) -> impl Iterator<Item = PageId> + '_ {
-        self.pages.iter().copied().filter(move |p| Some(*p) != self.current_page)
+        self.pages
+            .iter()
+            .copied()
+            .filter(move |p| Some(*p) != self.current_page)
     }
 
     /// Check if any registered tab was clicked in actions (uses path-based detection)
@@ -191,13 +205,16 @@ impl PageRouter {
 /// Helper to check if a specific tab was clicked using path-based detection
 /// This avoids WidgetUid mismatch issues with nested widgets
 pub fn tab_clicked(actions: &[Action], tab_id: LiveId) -> bool {
-    actions.iter().filter_map(|a| a.as_widget_action()).any(|wa| {
-        if let ButtonAction::Clicked(_) = wa.cast() {
-            wa.path.data.iter().any(|id| *id == tab_id)
-        } else {
-            false
-        }
-    })
+    actions
+        .iter()
+        .filter_map(|a| a.as_widget_action())
+        .any(|wa| {
+            if let ButtonAction::Clicked(_) = wa.cast() {
+                wa.path.data.iter().any(|id| *id == tab_id)
+            } else {
+                false
+            }
+        })
 }
 
 /// Trait for apps that integrate with MoFA Studio shell

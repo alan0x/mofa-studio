@@ -1,0 +1,18 @@
+[package]
+name = "mofa-primespeech"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+makepad-widgets.workspace = true
+mofa-widgets = { path = "../../mofa-widgets" }
+parking_lot.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+dirs.workspace = true
+log.workspace = true
+cpal.workspace = true
+crossbeam-channel.workspace = true
+mofa-dora-bridge = { path = "../../mofa-dora-bridge" }
+once_cell = "1.18"
+sysinfo.workspace = true

@@ -42,6 +42,7 @@ live_design! {
     use mofa_settings::screen::SettingsScreen;
     use mofa_debate::screen::design::MoFaDebateScreen;
     use mofa_tts::screen::TTSScreen;
+    use mofa_primespeech::screen::PrimeSpeechScreen;
     use crate::widgets::tabs::TabWidget;
     use crate::widgets::tabs::TabBar;
 
@@ -337,6 +338,11 @@ live_design! {
                         }
 
                         tts_page = <TTSScreen> {
+                            width: Fill, height: Fill
+                            visible: false
+                        }
+
+                        tts_primespeech_page = <PrimeSpeechScreen> {
                             width: Fill, height: Fill
                             visible: false
                         }
