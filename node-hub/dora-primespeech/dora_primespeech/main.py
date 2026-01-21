@@ -241,10 +241,13 @@ def main():
         if tts_engine is None or not hasattr(tts_engine, 'tts') or tts_engine.tts is None:
             raise RuntimeError("TTS engine initialization failed - internal TTS is None")
 
+        # Store current voice for change detection
+        tts_engine._current_voice = voice_name
+        
         model_loaded = True
         init_time = time.time() - start_time
         send_log(node, "INFO", f"TTS engine pre-initialized in {init_time:.2f}s", config.LOG_LEVEL)
-        send_log(node, "INFO", "Ready to synthesize speech", config.LOG_LEVEL)
+        send_log(node, "INFO", f"Ready to synthesize speech with voice: {voice_name}", config.LOG_LEVEL)
 
     except Exception as init_err:
         send_log(node, "WARNING", f"Failed to pre-initialize TTS engine: {init_err}", config.LOG_LEVEL)
@@ -262,15 +265,31 @@ def main():
     print("=" * 60)
     
     for event in node:
-        print(f"DEBUG: Received event with type: {event['type']}")
+        print(f"DEBUG: Received event with type: {event['type']}", flush=True)
         if event["type"] == "INPUT":
             input_id = event["id"]
-            print(f"Received event on input: {input_id}")
-            print(f"Event data: {event}")  # 打印完整事件数据
+            print(f"Received event on input: {input_id}", flush=True)
+            print(f"Event data: {event}", flush=True)  # 打印完整事件数据
+            # Event data: {'id': 'text', 'kind': 'dora', 'type': 'INPUT', 'value': <pyarrow.lib.StringArray object at 0x000002D601ADA680>
+            # [
+            #   "{"prompt":"VOICE:Doubao|好的很"}"
+            # ], 'metadata': {}}
             if input_id == "text":
                 # Get text to synthesize
-                raw_text = event["value"][0].as_py()
+                raw_data = event["value"][0].as_py()
                 metadata = event.get("metadata", {})
+                
+                print(f"DEBUG: Raw data received: {raw_data}", file=sys.stderr, flush=True)
+                
+                # Parse JSON payload {"prompt": "VOICE:name|text"} or {"prompt": "text"}
+                try:
+                    payload = json.loads(raw_data)
+                    raw_text = payload.get("prompt", "")
+                    print(f"DEBUG: Extracted prompt from JSON: {raw_text}", file=sys.stderr, flush=True)
+                except (json.JSONDecodeError, TypeError) as e:
+                    # Fallback: treat as plain text if not valid JSON
+                    print(f"DEBUG: Not valid JSON, treating as plain text: {e}", file=sys.stderr, flush=True)
+                    raw_text = raw_data
                 
                 # Parse VOICE: prefix for dynamic voice switching
                 # Format: "VOICE:voice_name|actual_text"
@@ -284,6 +303,7 @@ def main():
                             voice_prefix = parts[0][6:].strip()  # Remove "VOICE:" prefix and trim whitespace
                             text = parts[1]
                             
+                            print(f"DEBUG: Parsed VOICE - name: '{voice_prefix}', text: '{text}'", file=sys.stderr, flush=True)
                             send_log(node, "DEBUG", f"Parsed VOICE prefix: '{voice_prefix}', text: '{text[:50]}...'", config.LOG_LEVEL)
                             
                             # Check if voice exists
@@ -302,6 +322,8 @@ def main():
                     send_log(node, "DEBUG", f"RECEIVED with VOICE prefix, parsed text: '{text[:50]}...', voice={current_voice_name}", config.LOG_LEVEL)
                 else:
                     send_log(node, "DEBUG", f"RECEIVED text: '{text}' (len={len(text)}, voice={current_voice_name})", config.LOG_LEVEL)
+                
+                print(f"DEBUG: Final TTS text: '{text}', voice: {current_voice_name}", file=sys.stderr, flush=True)
 
                 segment_index = int(metadata.get("segment_index", -1))
 
@@ -334,9 +356,10 @@ def main():
                 send_log(node, "DEBUG", f"Processing segment {segment_index + 1} (len={len(text)})", config.LOG_LEVEL)
 
                 # Check if voice changed and we need to reload model
-                voice_changed = (model_loaded and 
-                               hasattr(tts_engine, '_current_voice') and 
-                               tts_engine._current_voice != current_voice_name)
+                current_tts_voice = getattr(tts_engine, '_current_voice', voice_name) if tts_engine else voice_name
+                voice_changed = (model_loaded and current_tts_voice != current_voice_name)
+                
+                print(f"DEBUG: Voice check - current: {current_tts_voice}, requested: {current_voice_name}, changed: {voice_changed}", file=sys.stderr, flush=True)
                 
                 # Load or reload models if not loaded or voice changed
                 if not model_loaded or voice_changed:

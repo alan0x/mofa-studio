@@ -266,14 +266,12 @@ impl PromptInputBridge {
     /// The conference-controller expects JSON with "prompt" field
     fn send_prompt_to_dora(node: &mut DoraNode, prompt: &str) -> BridgeResult<()> {
         println!("Sending prompt to dora: {}", prompt);
-        
+
         // Create JSON payload that conference-controller expects
         let payload = serde_json::json!({
             "prompt": prompt
         });
 
-        info!("Sending prompt to dora: {}", prompt);
-        
         let data = payload.to_string().into_arrow();
         let output_id: DataId = "control".to_string().into(); // Use control output
         node.send_output(output_id, Default::default(), data)

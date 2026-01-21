@@ -617,14 +617,14 @@ live_design! {
 
                     avatar_initial = <Label> {
                         width: Fill, height: Fill
-                        align: {x: 0.5, y: 0.5}
+                        align: {x: 0.4, y: 0.7}
                         draw_text: {
                             text_style: <FONT_BOLD>{ font_size: 18.0 }
                             fn get_color(self) -> vec4 {
                                 return (WHITE);
                             }
                         }
-                        text: "L"
+                        text: "豆"
                     }
                 }
 
@@ -644,7 +644,7 @@ live_design! {
                                 return mix((TEXT_PRIMARY), (TEXT_PRIMARY_DARK), self.dark_mode);
                             }
                         }
-                        text: "Luo Xiang"
+                        text: "Doubao"
                     }
 
                     status_label = <Label> {
