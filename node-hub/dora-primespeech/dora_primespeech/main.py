@@ -257,10 +257,16 @@ def main():
     total_syntheses = 0
     total_duration = 0
     
+    print("=" * 60)
+    print("PrimeSpeech Node: Entering event loop, waiting for events...")
+    print("=" * 60)
+    
     for event in node:
+        print(f"DEBUG: Received event with type: {event['type']}")
         if event["type"] == "INPUT":
             input_id = event["id"]
-            
+            print(f"Received event on input: {input_id}")
+            print(f"Event data: {event}")  # 打印完整事件数据
             if input_id == "text":
                 # Get text to synthesize
                 raw_text = event["value"][0].as_py()

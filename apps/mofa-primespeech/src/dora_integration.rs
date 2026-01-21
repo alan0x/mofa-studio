@@ -225,7 +225,10 @@ impl DoraIntegration {
                             let retries = 20;
                             for attempt in 1..=retries {
                                 match bridge.send(output, data.clone()) {
-                                    Ok(_) => return Ok(()),
+                                    Ok(_) => {
+                                        println!("Sent data on attempt {}", attempt);
+                                        return Ok(());
+                                    },
                                     Err(e) => {
                                         if attempt == retries {
                                             return Err(e.to_string());

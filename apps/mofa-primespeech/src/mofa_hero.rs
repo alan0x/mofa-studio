@@ -271,7 +271,7 @@ live_design! {
     }
 
     pub MofaHero = {{MofaHero}} {
-        width: Fill, height: 68
+        width: Fill, height: 76
         flow: Right
         spacing: 8
         align: {y: 0.5}
