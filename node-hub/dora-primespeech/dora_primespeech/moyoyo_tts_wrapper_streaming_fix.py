@@ -137,9 +137,13 @@ class StreamingMoYoYoTTSWrapper:
             "seed": 233333,
         }
         
+        import sys
+        print(f"DEBUG [Wrapper]: Initializing wrapper for voice: {voice}, device: {device}", file=sys.stderr, flush=True)
         if MOYOYO_AVAILABLE:
             self._init_tts()
-    
+        else:
+            print(f"DEBUG [Wrapper]: MOYOYO_AVAILABLE is False, skipping TTS init", file=sys.stderr, flush=True)
+
     def log(self, level, message):
         """Log a message using the provided logger function or print."""
         if self.logger_func:
@@ -190,6 +194,10 @@ class StreamingMoYoYoTTSWrapper:
             voice_config = voice_configs.get(self.voice, voice_configs["doubao"])
         
         # Create TTS configuration
+        print(f"DEBUG [_init_tts]: voice_config t2s_weights={voice_config['t2s_weights']}", file=sys.stderr, flush=True)
+        print(f"DEBUG [_init_tts]: voice_config vits_weights={voice_config['vits_weights']}", file=sys.stderr, flush=True)
+        print(f"DEBUG [_init_tts]: voice_config ref_audio={voice_config['ref_audio']}", file=sys.stderr, flush=True)
+        print(f"DEBUG [_init_tts]: voice_config prompt_text={voice_config['prompt_text'][:50]}...", file=sys.stderr, flush=True)
         custom_config = {
             "device": self.device,
             "is_half": self.device != "cpu",
@@ -206,19 +214,23 @@ class StreamingMoYoYoTTSWrapper:
         }
         
         try:
+            print(f"DEBUG [Wrapper._init_tts]: Initializing TTS for voice: {self.voice}", file=sys.stderr, flush=True)
             self.log("INFO", f"Initializing MoYoYo TTS with voice: {self.voice}")
             self.log("INFO", f"Model paths:")
             self.log("INFO", f"  t2s_weights: {custom_config['t2s_weights_path']}")
             self.log("INFO", f"  vits_weights: {custom_config['vits_weights_path']}")
             self.log("INFO", f"  cnhuhbert_base: {custom_config['cnhuhbert_base_path']}")
             self.log("INFO", f"  bert_base: {custom_config['bert_base_path']}")
-            
+
             # Check if model files exist
             for key, path in custom_config.items():
                 if 'path' in key and not Path(path).exists():
+                    print(f"DEBUG [Wrapper._init_tts]: Model file does not exist: {path}", file=sys.stderr, flush=True)
                     self.log("ERROR", f"Model file does not exist: {path}")
-            
+
+            print(f"DEBUG [Wrapper._init_tts]: Creating TTS instance...", file=sys.stderr, flush=True)
             self.tts = TTS(config_dict)
+            print(f"DEBUG [Wrapper._init_tts]: TTS instance created: {self.tts is not None}", file=sys.stderr, flush=True)
             
             # Store reference audio info
             self.ref_audio_path = str(self.models_path / voice_config["ref_audio"])
@@ -231,10 +243,13 @@ class StreamingMoYoYoTTSWrapper:
             # Pre-cache reference audio
             self.tts.set_ref_audio(self.ref_audio_path)
             
+            print(f"DEBUG [Wrapper._init_tts]: MoYoYo TTS initialized successfully", file=sys.stderr, flush=True)
             self.log("INFO", "MoYoYo TTS initialized successfully")
         except Exception as e:
-            self.log("ERROR", f"Failed to initialize MoYoYo TTS: {e}")
+            print(f"DEBUG [Wrapper._init_tts]: Failed to initialize MoYoYo TTS: {e}", file=sys.stderr, flush=True)
             import traceback
+            print(f"DEBUG [Wrapper._init_tts]: {traceback.format_exc()}", file=sys.stderr, flush=True)
+            self.log("ERROR", f"Failed to initialize MoYoYo TTS: {e}")
             self.log("ERROR", traceback.format_exc())
             self.tts = None
     
@@ -447,6 +462,9 @@ class StreamingMoYoYoTTSWrapper:
         try:
             # Prepare inputs
             # text = self._clean_text(text)
+            print(f"DEBUG [synthesize]: voice={self.voice}", file=sys.stderr, flush=True)
+            print(f"DEBUG [synthesize]: ref_audio_path={self.ref_audio_path}", file=sys.stderr, flush=True)
+            print(f"DEBUG [synthesize]: prompt_text={self.prompt_text[:50]}...", file=sys.stderr, flush=True)
             inputs = {
                 "text": text,
                 "text_lang": language,
@@ -458,17 +476,22 @@ class StreamingMoYoYoTTSWrapper:
                 'fragment_interval': fragment_interval,
                 **self.optimization_config
             }
-            
+
             self.log("DEBUG", f"Synthesizing {len(text)} chars")
+            print(f"DEBUG [synthesize]: Calling tts.run()...", file=sys.stderr, flush=True)
 
             # Generate audio
             for result in self.tts.run(inputs):
                 sample_rate, audio_data = result
                 break
 
+            print(f"DEBUG [synthesize]: Got result - sample_rate={sample_rate}, audio_len={len(audio_data)}, dtype={audio_data.dtype}", file=sys.stderr, flush=True)
+            print(f"DEBUG [synthesize]: audio_data stats - min={audio_data.min()}, max={audio_data.max()}, mean={audio_data.mean():.6f}", file=sys.stderr, flush=True)
+
             # Convert to float32 if needed
             if audio_data.dtype == np.int16:
                 audio_data = audio_data.astype(np.float32) / 32768.0
+                print(f"DEBUG [synthesize]: Converted to float32 - min={audio_data.min():.6f}, max={audio_data.max():.6f}", file=sys.stderr, flush=True)
 
             self.log("DEBUG", f"Synthesized {len(audio_data)/sample_rate:.2f}s audio")
             return sample_rate, audio_data

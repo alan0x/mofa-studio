@@ -2,6 +2,9 @@
 Simplified Dora PrimeSpeech Node - Main entry point
 High-quality text-to-speech using GPT-SoVITS technology.
 """
+print("=" * 60, flush=True)
+print("DEBUG: dora-primespeech main.py LOADED (v2 with voice debug)", flush=True)
+print("=" * 60, flush=True)
 
 import time
 import os
@@ -362,12 +365,15 @@ def main():
                 print(f"DEBUG: Voice check - current: {current_tts_voice}, requested: {current_voice_name}, changed: {voice_changed}", file=sys.stderr, flush=True)
                 
                 # Load or reload models if not loaded or voice changed
+                print(f"DEBUG: Checking reload condition - model_loaded={model_loaded}, voice_changed={voice_changed}", file=sys.stderr, flush=True)
                 if not model_loaded or voice_changed:
                     if voice_changed:
+                        print(f"DEBUG: Voice changed from {tts_engine._current_voice} to {current_voice_name}, reloading model...", file=sys.stderr, flush=True)
                         send_log(node, "INFO", f"Voice changed from {tts_engine._current_voice} to {current_voice_name}, reloading model...", config.LOG_LEVEL)
                     else:
+                        print(f"DEBUG: Loading models for the first time...", file=sys.stderr, flush=True)
                         send_log(node, "DEBUG", "Loading models for the first time...", config.LOG_LEVEL)
-                    
+
                     # Validate models directory early so failures are visible
                     _validate_models_path(lambda lvl, msg: send_log(node, lvl, msg, config.LOG_LEVEL))
                     
@@ -410,13 +416,17 @@ def main():
 
                         # Check if initialization succeeded
                         if tts_engine is None or not hasattr(tts_engine, 'tts') or tts_engine.tts is None:
+                            print(f"DEBUG: TTS engine initialization failed! tts_engine={tts_engine}, has_tts={hasattr(tts_engine, 'tts') if tts_engine else 'N/A'}", file=sys.stderr, flush=True)
                             send_log(node, "ERROR", "TTS engine initialization failed!", config.LOG_LEVEL)
                             send_log(node, "ERROR", "TTS wrapper exists but internal TTS is None", config.LOG_LEVEL)
                         else:
+                            print(f"DEBUG: TTS engine initialized successfully for voice: {current_voice_name}", file=sys.stderr, flush=True)
                             send_log(node, "DEBUG", "TTS engine initialized successfully", config.LOG_LEVEL)
                         model_loaded = True
                         send_log(node, "DEBUG", "TTS engine ready", config.LOG_LEVEL)
                     except Exception as init_err:
+                        print(f"DEBUG: TTS init error: {init_err}", file=sys.stderr, flush=True)
+                        print(f"DEBUG: Traceback: {traceback.format_exc()}", file=sys.stderr, flush=True)
                         send_log(node, "ERROR", f"TTS init error: {init_err}", config.LOG_LEVEL)
                         send_log(node, "ERROR", f"Traceback: {traceback.format_exc()}", config.LOG_LEVEL)
                         # Mark as not loaded and send error completion without audio
