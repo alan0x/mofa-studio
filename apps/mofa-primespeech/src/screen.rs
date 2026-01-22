@@ -859,12 +859,12 @@ impl Widget for PrimeSpeechScreen {
             // Initialize stored audio sample rate (PrimeSpeech uses 32000)
             self.stored_audio_sample_rate = 32000;
             // Initialize voice name
-            self.current_voice_name = "Luo Xiang".to_string();
+            self.current_voice_name = "Doubao".to_string();
             // Add initial log entries
             self.log_entries
                 .push("[INFO] [primespeech] MoFA PrimeSpeech initialized".to_string());
             self.log_entries
-                .push("[INFO] [primespeech] Default voice: Luo Xiang (GPT-SoVITS)".to_string());
+                .push("[INFO] [primespeech] Default voice: Doubao (GPT-SoVITS)".to_string());
             self.log_entries
                 .push("[INFO] [primespeech] Click 'Start' to connect to MoFA bridge".to_string());
             // Update log display immediately
