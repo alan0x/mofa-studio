@@ -1364,10 +1364,9 @@ impl PrimeSpeechScreen {
             return;
         }
 
-        let log_text = if text.len() > 50 {
-            format!("{}...", &text[..50])
-        } else {
-            text.clone()
+        let log_text = match text.char_indices().nth(50) {
+            Some((idx, _)) => format!("{}...", &text[..idx]),
+            None => text.clone(),
         };
         self.add_log(
             cx,

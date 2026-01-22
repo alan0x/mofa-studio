@@ -644,7 +644,7 @@ live_design! {
                                 return mix((TEXT_PRIMARY), (TEXT_PRIMARY_DARK), self.dark_mode);
                             }
                         }
-                        text: "zf_xiaoni"
+                        text: "Yunjian"
                     }
 
                     status_label = <Label> {

@@ -235,7 +235,7 @@ live_design! {
                                 return mix((PRIMARY_700), (PRIMARY_200), self.dark_mode);
                             }
                         }
-                        text: "小妮 (Xiaoni)"
+                        text: "云剑 (Yunjian)"
                     }
                 }
             }
@@ -267,7 +267,7 @@ live_design! {
 #[derive(Clone, Debug, DefaultNone)]
 pub enum VoiceSelectorAction {
     None,
-    VoiceSelected(String), // voice_id
+    VoiceSelected(String),    // voice_id
     PreviewRequested(String), // voice_id
 }
 
@@ -320,7 +320,11 @@ impl Widget for VoiceSelector {
                     self.selected_voice_id = Some(voice_id.clone());
 
                     // Update selected voice label in header badge
-                    self.view.label(ids!(header.title_row.selected_voice_badge.selected_voice_label)).set_text(cx, &voice_name);
+                    self.view
+                        .label(ids!(
+                            header.title_row.selected_voice_badge.selected_voice_label
+                        ))
+                        .set_text(cx, &voice_name);
 
                     cx.widget_action(
                         self.widget_uid(),
@@ -357,36 +361,52 @@ impl Widget for VoiceSelector {
                         let initial = voice.name.chars().next().unwrap_or('?').to_string();
                         item.label(ids!(avatar.initial)).set_text(cx, &initial);
                         item.label(ids!(info.name)).set_text(cx, &voice.name);
-                        item.label(ids!(info.description)).set_text(cx, &voice.description);
+                        item.label(ids!(info.description))
+                            .set_text(cx, &voice.description);
 
                         // Set selection state
                         let is_selected = self.selected_voice_id.as_ref() == Some(&voice.id);
                         let selected_val = if is_selected { 1.0 } else { 0.0 };
 
                         // Apply selection and dark mode to item background
-                        item.apply_over(cx, live! {
-                            draw_bg: { selected: (selected_val), dark_mode: (self.dark_mode) }
-                        });
+                        item.apply_over(
+                            cx,
+                            live! {
+                                draw_bg: { selected: (selected_val), dark_mode: (self.dark_mode) }
+                            },
+                        );
 
                         // Apply selection indicator
-                        item.view(ids!(selection_indicator)).apply_over(cx, live! {
-                            draw_bg: { selected: (selected_val) }
-                        });
+                        item.view(ids!(selection_indicator)).apply_over(
+                            cx,
+                            live! {
+                                draw_bg: { selected: (selected_val) }
+                            },
+                        );
 
                         // Apply dark mode and selection to avatar
-                        item.view(ids!(avatar)).apply_over(cx, live! {
-                            draw_bg: { dark_mode: (self.dark_mode), selected: (selected_val) }
-                        });
+                        item.view(ids!(avatar)).apply_over(
+                            cx,
+                            live! {
+                                draw_bg: { dark_mode: (self.dark_mode), selected: (selected_val) }
+                            },
+                        );
 
                         // Apply dark mode and selection to name label
-                        item.label(ids!(info.name)).apply_over(cx, live! {
-                            draw_text: { dark_mode: (self.dark_mode), selected: (selected_val) }
-                        });
+                        item.label(ids!(info.name)).apply_over(
+                            cx,
+                            live! {
+                                draw_text: { dark_mode: (self.dark_mode), selected: (selected_val) }
+                            },
+                        );
 
                         // Apply dark mode to description
-                        item.label(ids!(info.description)).apply_over(cx, live! {
-                            draw_text: { dark_mode: (self.dark_mode) }
-                        });
+                        item.label(ids!(info.description)).apply_over(
+                            cx,
+                            live! {
+                                draw_text: { dark_mode: (self.dark_mode) }
+                            },
+                        );
 
                         item.draw_all(cx, scope);
                     }
@@ -410,7 +430,8 @@ impl VoiceSelectorRef {
 
     /// Get selected voice ID
     pub fn selected_voice_id(&self) -> Option<String> {
-        self.borrow().and_then(|inner| inner.selected_voice_id.clone())
+        self.borrow()
+            .and_then(|inner| inner.selected_voice_id.clone())
     }
 
     /// Update dark mode
@@ -418,29 +439,52 @@ impl VoiceSelectorRef {
         if let Some(mut inner) = self.borrow_mut() {
             inner.dark_mode = dark_mode;
 
-            inner.view.apply_over(cx, live! {
-                draw_bg: { dark_mode: (dark_mode) }
-            });
+            inner.view.apply_over(
+                cx,
+                live! {
+                    draw_bg: { dark_mode: (dark_mode) }
+                },
+            );
 
             // Header background
-            inner.view.view(ids!(header)).apply_over(cx, live! {
-                draw_bg: { dark_mode: (dark_mode) }
-            });
+            inner.view.view(ids!(header)).apply_over(
+                cx,
+                live! {
+                    draw_bg: { dark_mode: (dark_mode) }
+                },
+            );
 
             // Header title
-            inner.view.label(ids!(header.title_row.title)).apply_over(cx, live! {
-                draw_text: { dark_mode: (dark_mode) }
-            });
+            inner.view.label(ids!(header.title_row.title)).apply_over(
+                cx,
+                live! {
+                    draw_text: { dark_mode: (dark_mode) }
+                },
+            );
 
             // Selected voice badge
-            inner.view.view(ids!(header.title_row.selected_voice_badge)).apply_over(cx, live! {
-                draw_bg: { dark_mode: (dark_mode) }
-            });
+            inner
+                .view
+                .view(ids!(header.title_row.selected_voice_badge))
+                .apply_over(
+                    cx,
+                    live! {
+                        draw_bg: { dark_mode: (dark_mode) }
+                    },
+                );
 
             // Selected voice label
-            inner.view.label(ids!(header.title_row.selected_voice_badge.selected_voice_label)).apply_over(cx, live! {
-                draw_text: { dark_mode: (dark_mode) }
-            });
+            inner
+                .view
+                .label(ids!(
+                    header.title_row.selected_voice_badge.selected_voice_label
+                ))
+                .apply_over(
+                    cx,
+                    live! {
+                        draw_text: { dark_mode: (dark_mode) }
+                    },
+                );
 
             inner.view.redraw(cx);
         }
