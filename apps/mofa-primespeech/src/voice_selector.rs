@@ -118,46 +118,47 @@ live_design! {
             }
         }
 
-        // Preview button (hidden for now - can be enabled later)
+        // Preview button - plays reference audio sample
         preview_btn = <View> {
-            width: 32, height: 32
+            width: 28, height: 28
             align: {x: 0.5, y: 0.5}
             cursor: Hand
-            visible: false
+            visible: true
 
             show_bg: true
             draw_bg: {
                 instance dark_mode: 0.0
                 instance hover: 0.0
+                instance playing: 0.0
 
                 fn pixel(self) -> vec4 {
                     let sdf = Sdf2d::viewport(self.pos * self.rect_size);
-                    sdf.circle(16.0, 16.0, 16.0);
-                    let base = mix((SURFACE_HOVER), (SURFACE_HOVER_DARK), self.dark_mode);
-                    let hover_color = mix((PRIMARY_100), (PRIMARY_800), self.dark_mode);
-                    sdf.fill(mix(base, hover_color, self.hover));
-                    return sdf.result;
-                }
-            }
+                    sdf.circle(14.0, 14.0, 14.0);
+                    let base = mix((SLATE_100), (SLATE_700), self.dark_mode);
+                    let hover_color = mix((PRIMARY_100), (PRIMARY_700), self.dark_mode);
+                    let playing_color = mix((PRIMARY_200), (PRIMARY_600), self.dark_mode);
+                    let color = mix(base, hover_color, self.hover);
+                    let color = mix(color, playing_color, self.playing);
+                    sdf.fill(color);
 
-            // Play icon (triangle)
-            <View> {
-                width: Fill, height: Fill
-                align: {x: 0.5, y: 0.5}
-                show_bg: true
-                draw_bg: {
-                    instance dark_mode: 0.0
-                    fn pixel(self) -> vec4 {
-                        let sdf = Sdf2d::viewport(self.pos * self.rect_size);
-                        // Draw play triangle
-                        sdf.move_to(10.0, 8.0);
-                        sdf.line_to(22.0, 16.0);
-                        sdf.line_to(10.0, 24.0);
+                    // Draw play triangle or stop square based on playing state
+                    if self.playing > 0.5 {
+                        // Stop icon (square)
+                        sdf.rect(10.0, 10.0, 8.0, 8.0);
+                        let icon_color = mix((PRIMARY_600), (PRIMARY_300), self.dark_mode);
+                        sdf.fill(icon_color);
+                    } else {
+                        // Play icon (triangle) - centered
+                        sdf.move_to(11.0, 9.0);
+                        sdf.line_to(20.0, 14.0);
+                        sdf.line_to(11.0, 19.0);
                         sdf.close_path();
-                        let color = mix((TEXT_PRIMARY), (TEXT_PRIMARY_DARK), self.dark_mode);
-                        sdf.fill(color);
-                        return sdf.result;
+                        let icon_color = mix((SLATE_500), (SLATE_400), self.dark_mode);
+                        let icon_hover = mix((PRIMARY_600), (PRIMARY_300), self.dark_mode);
+                        sdf.fill(mix(icon_color, icon_hover, self.hover));
                     }
+
+                    return sdf.result;
                 }
             }
         }
@@ -287,6 +288,12 @@ pub struct VoiceSelector {
 
     #[rust]
     initialized: bool,
+
+    #[rust]
+    preview_playing_voice_id: Option<String>,
+
+    #[rust]
+    hovered_preview_idx: Option<usize>,
 }
 
 impl Widget for VoiceSelector {
@@ -312,23 +319,44 @@ impl Widget for VoiceSelector {
         // Handle portal list item events using items_with_actions pattern
         let portal_list = self.view.portal_list(ids!(voice_list));
         for (item_id, item) in portal_list.items_with_actions(actions) {
-            // Handle click on voice item
-            if item.as_view().finger_up(actions).is_some() {
-                if item_id < self.voices.len() {
-                    let voice_id = self.voices[item_id].id.clone();
-                    let voice_name = self.voices[item_id].name.clone();
-                    self.selected_voice_id = Some(voice_id.clone());
+            if item_id >= self.voices.len() {
+                continue;
+            }
 
-                    // Update selected voice label in header badge
-                    self.view.label(ids!(header.title_row.selected_voice_badge.selected_voice_label)).set_text(cx, &voice_name);
-
-                    cx.widget_action(
-                        self.widget_uid(),
-                        &scope.path,
-                        VoiceSelectorAction::VoiceSelected(voice_id),
-                    );
-                    self.view.redraw(cx);
+            // Handle preview button click
+            let preview_btn = item.view(ids!(preview_btn));
+            if preview_btn.finger_up(actions).is_some() {
+                let voice_id = self.voices[item_id].id.clone();
+                // Toggle preview: if same voice is playing, stop it
+                if self.preview_playing_voice_id.as_ref() == Some(&voice_id) {
+                    self.preview_playing_voice_id = None;
+                } else {
+                    self.preview_playing_voice_id = Some(voice_id.clone());
                 }
+                cx.widget_action(
+                    self.widget_uid(),
+                    &scope.path,
+                    VoiceSelectorAction::PreviewRequested(voice_id),
+                );
+                self.view.redraw(cx);
+                continue; // Don't also select the voice
+            }
+
+            // Handle click on voice item (not preview button) to select voice
+            if item.as_view().finger_up(actions).is_some() {
+                let voice_id = self.voices[item_id].id.clone();
+                let voice_name = self.voices[item_id].name.clone();
+                self.selected_voice_id = Some(voice_id.clone());
+
+                // Update selected voice label in header badge
+                self.view.label(ids!(header.title_row.selected_voice_badge.selected_voice_label)).set_text(cx, &voice_name);
+
+                cx.widget_action(
+                    self.widget_uid(),
+                    &scope.path,
+                    VoiceSelectorAction::VoiceSelected(voice_id),
+                );
+                self.view.redraw(cx);
             }
         }
     }
@@ -388,6 +416,15 @@ impl Widget for VoiceSelector {
                             draw_text: { dark_mode: (self.dark_mode) }
                         });
 
+                        // Apply preview button state
+                        let is_playing = self.preview_playing_voice_id.as_ref() == Some(&voice.id);
+                        let playing_val = if is_playing { 1.0 } else { 0.0 };
+                        let is_hovered = self.hovered_preview_idx == Some(item_id);
+                        let hover_val = if is_hovered { 1.0 } else { 0.0 };
+                        item.view(ids!(preview_btn)).apply_over(cx, live! {
+                            draw_bg: { dark_mode: (self.dark_mode), playing: (playing_val), hover: (hover_val) }
+                        });
+
                         item.draw_all(cx, scope);
                     }
                 }
@@ -411,6 +448,30 @@ impl VoiceSelectorRef {
     /// Get selected voice ID
     pub fn selected_voice_id(&self) -> Option<String> {
         self.borrow().and_then(|inner| inner.selected_voice_id.clone())
+    }
+
+    /// Get voice by ID
+    pub fn get_voice(&self, voice_id: &str) -> Option<Voice> {
+        if let Some(inner) = self.borrow() {
+            return inner.voices.iter().find(|v| v.id == voice_id).cloned();
+        }
+        None
+    }
+
+    /// Set preview playing state
+    pub fn set_preview_playing(&self, cx: &mut Cx, voice_id: Option<String>) {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.preview_playing_voice_id = voice_id;
+            inner.view.redraw(cx);
+        }
+    }
+
+    /// Check if preview is playing for a voice
+    pub fn is_preview_playing(&self, voice_id: &str) -> bool {
+        if let Some(inner) = self.borrow() {
+            return inner.preview_playing_voice_id.as_ref() == Some(&voice_id.to_string());
+        }
+        false
     }
 
     /// Update dark mode

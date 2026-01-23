@@ -48,7 +48,7 @@ pub fn get_builtin_voices() -> Vec<Voice> {
             description: "Chinese - mixed style, natural and expressive".to_string(),
             category: VoiceCategory::Character,
             language: "zh".to_string(),
-            preview_audio: None,
+            preview_audio: Some("doubao_ref_mix_new.wav".to_string()),
         },
         Voice {
             id: "Luo Xiang".to_string(),
@@ -56,7 +56,7 @@ pub fn get_builtin_voices() -> Vec<Voice> {
             description: "Chinese male - law professor, articulate and thoughtful".to_string(),
             category: VoiceCategory::Male,
             language: "zh".to_string(),
-            preview_audio: None,
+            preview_audio: Some("luoxiang_ref.wav".to_string()),
         },
         Voice {
             id: "Yang Mi".to_string(),
@@ -64,7 +64,7 @@ pub fn get_builtin_voices() -> Vec<Voice> {
             description: "Chinese female - actress, sweet and charming".to_string(),
             category: VoiceCategory::Female,
             language: "zh".to_string(),
-            preview_audio: None,
+            preview_audio: Some("yangmi_ref.wav".to_string()),
         },
         Voice {
             id: "Zhou Jielun".to_string(),
@@ -72,7 +72,7 @@ pub fn get_builtin_voices() -> Vec<Voice> {
             description: "Chinese male - singer, unique and distinctive".to_string(),
             category: VoiceCategory::Male,
             language: "zh".to_string(),
-            preview_audio: None,
+            preview_audio: Some("zhoujielun_ref.wav".to_string()),
         },
         Voice {
             id: "Ma Yun".to_string(),
@@ -80,7 +80,7 @@ pub fn get_builtin_voices() -> Vec<Voice> {
             description: "Chinese male - entrepreneur, confident speaker".to_string(),
             category: VoiceCategory::Male,
             language: "zh".to_string(),
-            preview_audio: None,
+            preview_audio: Some("mayun_ref.wav".to_string()),
         },
         Voice {
             id: "Chen Yifan".to_string(),
@@ -88,7 +88,7 @@ pub fn get_builtin_voices() -> Vec<Voice> {
             description: "Chinese male - analyst, professional tone".to_string(),
             category: VoiceCategory::Male,
             language: "zh".to_string(),
-            preview_audio: None,
+            preview_audio: Some("yfc_ref.wav".to_string()),
         },
         Voice {
             id: "Zhao Daniu".to_string(),
@@ -96,7 +96,7 @@ pub fn get_builtin_voices() -> Vec<Voice> {
             description: "Chinese male - podcast host, engaging narrator".to_string(),
             category: VoiceCategory::Male,
             language: "zh".to_string(),
-            preview_audio: None,
+            preview_audio: Some("dnz_ref.wav".to_string()),
         },
         Voice {
             id: "BYS".to_string(),
@@ -104,7 +104,7 @@ pub fn get_builtin_voices() -> Vec<Voice> {
             description: "Chinese - casual and friendly".to_string(),
             category: VoiceCategory::Character,
             language: "zh".to_string(),
-            preview_audio: None,
+            preview_audio: Some("bys_ref.wav".to_string()),
         },
         Voice {
             id: "Ma Baoguo".to_string(),
@@ -112,7 +112,7 @@ pub fn get_builtin_voices() -> Vec<Voice> {
             description: "Chinese male - martial arts master, distinctive style".to_string(),
             category: VoiceCategory::Male,
             language: "zh".to_string(),
-            preview_audio: None,
+            preview_audio: Some("mabaoguo_ref.wav".to_string()),
         },
         Voice {
             id: "Shen Yi".to_string(),
@@ -120,7 +120,7 @@ pub fn get_builtin_voices() -> Vec<Voice> {
             description: "Chinese male - professor, analytical tone".to_string(),
             category: VoiceCategory::Male,
             language: "zh".to_string(),
-            preview_audio: None,
+            preview_audio: Some("shenyi_ref.wav".to_string()),
         },
         // English voices
         Voice {
@@ -129,7 +129,7 @@ pub fn get_builtin_voices() -> Vec<Voice> {
             description: "English female - storyteller, warm and gentle".to_string(),
             category: VoiceCategory::Female,
             language: "en".to_string(),
-            preview_audio: None,
+            preview_audio: Some("maple_ref.wav".to_string()),
         },
         Voice {
             id: "Cove".to_string(),
@@ -137,7 +137,7 @@ pub fn get_builtin_voices() -> Vec<Voice> {
             description: "English male - commentator, clear and professional".to_string(),
             category: VoiceCategory::Male,
             language: "en".to_string(),
-            preview_audio: None,
+            preview_audio: Some("cove_ref.wav".to_string()),
         },
         Voice {
             id: "Ellen".to_string(),
@@ -145,7 +145,7 @@ pub fn get_builtin_voices() -> Vec<Voice> {
             description: "English female - talk show host, energetic".to_string(),
             category: VoiceCategory::Female,
             language: "en".to_string(),
-            preview_audio: None,
+            preview_audio: Some("ellen_ref.wav".to_string()),
         },
         Voice {
             id: "Juniper".to_string(),
@@ -153,7 +153,7 @@ pub fn get_builtin_voices() -> Vec<Voice> {
             description: "English female - narrator, calm and soothing".to_string(),
             category: VoiceCategory::Female,
             language: "en".to_string(),
-            preview_audio: None,
+            preview_audio: Some("juniper_ref.wav".to_string()),
         },
         Voice {
             id: "Trump".to_string(),
@@ -161,7 +161,7 @@ pub fn get_builtin_voices() -> Vec<Voice> {
             description: "English male - distinctive speaking style".to_string(),
             category: VoiceCategory::Male,
             language: "en".to_string(),
-            preview_audio: None,
+            preview_audio: Some("trump_ref.wav".to_string()),
         },
     ]
 }

@@ -6,6 +6,7 @@ use crate::log_bridge;
 use crate::mofa_hero::{ConnectionStatus, MofaHeroAction, MofaHeroWidgetExt};
 use crate::voice_data::TTSStatus;
 use crate::voice_selector::{VoiceSelectorAction, VoiceSelectorWidgetExt};
+use hound::WavReader;
 use makepad_widgets::*;
 use std::path::PathBuf;
 
@@ -839,6 +840,12 @@ pub struct PrimeSpeechScreen {
     // Current voice name for display
     #[rust]
     current_voice_name: String,
+
+    // Preview player for reference audio
+    #[rust]
+    preview_player: Option<TTSPlayer>,
+    #[rust]
+    preview_playing_voice_id: Option<String>,
 }
 
 impl Widget for PrimeSpeechScreen {
@@ -977,10 +984,7 @@ impl Widget for PrimeSpeechScreen {
                     );
                 }
                 VoiceSelectorAction::PreviewRequested(voice_id) => {
-                    self.add_log(
-                        cx,
-                        &format!("[INFO] [primespeech] Voice preview: {}", voice_id),
-                    );
+                    self.handle_preview_request(cx, &voice_id);
                 }
                 VoiceSelectorAction::None => {}
             }
@@ -1177,6 +1181,156 @@ impl PrimeSpeechScreen {
         }
 
         self.view.redraw(cx);
+    }
+
+    fn handle_preview_request(&mut self, cx: &mut Cx, voice_id: &str) {
+        // Get the voice selector to check preview audio path
+        let voice_selector = self.view.voice_selector(ids!(
+            main_content
+                .left_column
+                .content_area
+                .controls_panel
+                .voice_section
+                .voice_selector
+        ));
+
+        // Check if we're stopping a preview
+        if self.preview_playing_voice_id.as_ref() == Some(&voice_id.to_string()) {
+            // Stop preview
+            if let Some(player) = &self.preview_player {
+                player.stop();
+            }
+            self.preview_playing_voice_id = None;
+            voice_selector.set_preview_playing(cx, None);
+            self.add_log(cx, &format!("[INFO] [primespeech] Stopped preview: {}", voice_id));
+            return;
+        }
+
+        // Stop any currently playing preview
+        if let Some(player) = &self.preview_player {
+            player.stop();
+        }
+
+        // Get voice info
+        let voice = match voice_selector.get_voice(voice_id) {
+            Some(v) => v,
+            None => {
+                self.add_log(cx, &format!("[ERROR] [primespeech] Voice not found: {}", voice_id));
+                return;
+            }
+        };
+
+        // Get preview audio filename
+        let preview_file = match &voice.preview_audio {
+            Some(f) => f.clone(),
+            None => {
+                self.add_log(cx, &format!("[WARN] [primespeech] No preview audio for: {}", voice_id));
+                return;
+            }
+        };
+
+        // Build the full path to the reference audio
+        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+        let audio_path = home
+            .join(".dora")
+            .join("models")
+            .join("primespeech")
+            .join("moyoyo")
+            .join("ref_audios")
+            .join(&preview_file);
+
+        if !audio_path.exists() {
+            self.add_log(
+                cx,
+                &format!("[ERROR] [primespeech] Preview audio not found: {:?}", audio_path),
+            );
+            return;
+        }
+
+        // Load WAV file
+        match self.load_wav_file(&audio_path) {
+            Ok(samples) => {
+                // Initialize preview player if needed
+                if self.preview_player.is_none() {
+                    self.preview_player = Some(TTSPlayer::new());
+                }
+
+                // Play the audio
+                if let Some(player) = &self.preview_player {
+                    player.write_audio(&samples);
+                }
+
+                self.preview_playing_voice_id = Some(voice_id.to_string());
+                voice_selector.set_preview_playing(cx, Some(voice_id.to_string()));
+                self.add_log(
+                    cx,
+                    &format!("[INFO] [primespeech] Playing preview: {} ({:.1}s)", voice_id, samples.len() as f32 / 32000.0),
+                );
+            }
+            Err(e) => {
+                self.add_log(
+                    cx,
+                    &format!("[ERROR] [primespeech] Failed to load preview: {}", e),
+                );
+            }
+        }
+    }
+
+    fn load_wav_file(&self, path: &PathBuf) -> Result<Vec<f32>, String> {
+        let reader = WavReader::open(path).map_err(|e| format!("Failed to open WAV: {}", e))?;
+        let spec = reader.spec();
+        let sample_rate = spec.sample_rate;
+        let channels = spec.channels as usize;
+
+        // Read samples based on format
+        let samples: Vec<f32> = match spec.sample_format {
+            hound::SampleFormat::Int => {
+                let bits = spec.bits_per_sample;
+                let max_val = (1 << (bits - 1)) as f32;
+                reader
+                    .into_samples::<i32>()
+                    .filter_map(Result::ok)
+                    .map(|s| s as f32 / max_val)
+                    .collect()
+            }
+            hound::SampleFormat::Float => {
+                reader
+                    .into_samples::<f32>()
+                    .filter_map(Result::ok)
+                    .collect()
+            }
+        };
+
+        // Convert to mono if stereo
+        let mono_samples: Vec<f32> = if channels > 1 {
+            samples
+                .chunks(channels)
+                .map(|chunk| chunk.iter().sum::<f32>() / channels as f32)
+                .collect()
+        } else {
+            samples
+        };
+
+        // Resample to 32000 Hz if needed (TTSPlayer expects 32000 Hz)
+        let target_rate = 32000;
+        let resampled = if sample_rate != target_rate {
+            let ratio = target_rate as f32 / sample_rate as f32;
+            let new_len = (mono_samples.len() as f32 * ratio) as usize;
+            let mut result = Vec::with_capacity(new_len);
+            for i in 0..new_len {
+                let src_idx = i as f32 / ratio;
+                let idx = src_idx as usize;
+                let frac = src_idx - idx as f32;
+                let s1 = mono_samples.get(idx).copied().unwrap_or(0.0);
+                let s2 = mono_samples.get(idx + 1).copied().unwrap_or(s1);
+                result.push(s1 + (s2 - s1) * frac);
+            }
+            result
+        } else {
+            mono_samples
+        };
+
+        Ok(resampled)
     }
 
     fn update_log_display(&mut self, cx: &mut Cx) {

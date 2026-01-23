@@ -16,3 +16,4 @@ crossbeam-channel.workspace = true
 mofa-dora-bridge = { path = "../../mofa-dora-bridge" }
 once_cell = "1.18"
 sysinfo.workspace = true
+hound = "3.5"
