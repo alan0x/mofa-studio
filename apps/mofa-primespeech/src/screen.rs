@@ -21,6 +21,61 @@ live_design! {
     use crate::voice_selector::VoiceSelector;
     use crate::voice_clone_modal::VoiceCloneModal;
 
+    // Toast notification for success/error messages
+    Toast = <RoundedView> {
+        width: Fit, height: Fit
+        padding: {left: 16, right: 16, top: 10, bottom: 10}
+        visible: false
+
+        draw_bg: {
+            instance dark_mode: 0.0
+            border_radius: 8.0
+            fn pixel(self) -> vec4 {
+                let sdf = Sdf2d::viewport(self.pos * self.rect_size);
+                sdf.box(0., 0., self.rect_size.x, self.rect_size.y, self.border_radius);
+                // Green success background
+                let bg = mix(vec4(0.16, 0.65, 0.37, 0.95), vec4(0.13, 0.55, 0.32, 0.95), self.dark_mode);
+                sdf.fill(bg);
+                return sdf.result;
+            }
+        }
+
+        toast_content = <View> {
+            width: Fit, height: Fit
+            flow: Right
+            spacing: 8
+            align: {y: 0.5}
+
+            // Checkmark icon
+            checkmark = <View> {
+                width: 18, height: 18
+                show_bg: true
+                draw_bg: {
+                    fn pixel(self) -> vec4 {
+                        let sdf = Sdf2d::viewport(self.pos * self.rect_size);
+                        // Draw checkmark
+                        sdf.move_to(3.0, 9.0);
+                        sdf.line_to(7.0, 13.0);
+                        sdf.line_to(15.0, 5.0);
+                        sdf.stroke((WHITE), 2.0);
+                        return sdf.result;
+                    }
+                }
+            }
+
+            toast_label = <Label> {
+                width: Fit, height: Fit
+                draw_text: {
+                    text_style: <FONT_SEMIBOLD>{ font_size: 12.0 }
+                    fn get_color(self) -> vec4 {
+                        return (WHITE);
+                    }
+                }
+                text: "Downloaded successfully!"
+            }
+        }
+    }
+
     // Layout constants
     SECTION_SPACING = 12.0
     PANEL_RADIUS = 6.0
@@ -98,6 +153,53 @@ live_design! {
             text_style: <FONT_SEMIBOLD>{ font_size: 13.0 }
             fn get_color(self) -> vec4 {
                 return (WHITE);
+            }
+        }
+    }
+
+    // Loading spinner for generate button
+    GenerateSpinner = <View> {
+        width: 20, height: 20
+        visible: false
+
+        show_bg: true
+        draw_bg: {
+            instance rotation: 0.0
+
+            fn pixel(self) -> vec4 {
+                let sdf = Sdf2d::viewport(self.pos * self.rect_size);
+                let center = self.rect_size * 0.5;
+                let radius = 8.0;
+
+                // Rotating arc
+                let angle = self.rotation * 2.0 * PI;
+                let arc_start = angle;
+                let arc_end = angle + PI * 1.2;
+
+                sdf.move_to(
+                    center.x + cos(arc_start) * radius,
+                    center.y + sin(arc_start) * radius
+                );
+                sdf.arc(center.x, center.y, radius, arc_start, arc_end);
+                sdf.stroke((WHITE), 2.5);
+
+                return sdf.result;
+            }
+        }
+
+        animator: {
+            spin = {
+                default: off,
+                off = {
+                    from: {all: Forward {duration: 0.0}}
+                    apply: { draw_bg: { rotation: 0.0 } }
+                }
+                on = {
+                    from: {all: Loop {duration: 0.8, end: 1.0}}
+                    apply: {
+                        draw_bg: { rotation: [{time: 0.0, value: 0.0}, {time: 1.0, value: 1.0}] }
+                    }
+                }
             }
         }
     }
@@ -367,9 +469,18 @@ live_design! {
 
                             <View> { width: Fill, height: 1 }
 
-                            // Generate button
-                            generate_btn = <PrimaryButton> {
-                                text: "Generate Speech"
+                            // Generate button with spinner
+                            generate_section = <View> {
+                                width: Fit, height: Fit
+                                flow: Overlay
+                                align: {x: 0.5, y: 0.5}
+
+                                generate_btn = <PrimaryButton> {
+                                    text: "Generate Speech"
+                                }
+
+                                // Centered spinner overlay (hidden by default)
+                                generate_spinner = <GenerateSpinner> {}
                             }
                         }
                     }
@@ -807,6 +918,15 @@ live_design! {
 
         // Voice clone modal (overlay)
         voice_clone_modal = <VoiceCloneModal> {}
+
+        // Toast notification (bottom center overlay)
+        toast_overlay = <View> {
+            width: Fill, height: Fill
+            align: {x: 0.5, y: 1.0}
+            padding: {bottom: 100}
+
+            download_toast = <Toast> {}
+        }
     }
 }
 
@@ -859,6 +979,14 @@ pub struct PrimeSpeechScreen {
     preview_player: Option<TTSPlayer>,
     #[rust]
     preview_playing_voice_id: Option<String>,
+
+    // Toast notification state
+    #[rust]
+    toast_timer: Timer,
+    #[rust]
+    toast_visible: bool,
+    #[rust]
+    toast_message: String,
 }
 
 impl Widget for PrimeSpeechScreen {
@@ -897,6 +1025,11 @@ impl Widget for PrimeSpeechScreen {
             self.dora = Some(dora);
         }
 
+        // Handle toast timer (auto-hide after delay)
+        if self.toast_timer.is_event(event).is_some() {
+            self.hide_toast(cx);
+        }
+
         // Poll for audio and logs
         if self.update_timer.is_event(event).is_some() {
             // Poll Dora Audio - store audio samples instead of auto-playing
@@ -925,6 +1058,7 @@ impl Widget for PrimeSpeechScreen {
                                 ),
                             );
                             self.tts_status = TTSStatus::Ready;
+                            self.set_generate_button_loading(cx, false);
                             self.update_player_bar(cx);
                         }
                     }
@@ -1087,11 +1221,13 @@ impl Widget for PrimeSpeechScreen {
         if self
             .view
             .button(ids!(
-                main_content
+                content_wrapper
+                    .main_content
                     .left_column
                     .content_area
                     .input_section
                     .bottom_bar
+                    .generate_section
                     .generate_btn
             ))
             .clicked(actions)
@@ -1103,7 +1239,7 @@ impl Widget for PrimeSpeechScreen {
         if self
             .view
             .button(ids!(
-                audio_player_bar.playback_controls.controls_row.play_btn
+                content_wrapper.audio_player_bar.playback_controls.controls_row.play_btn
             ))
             .clicked(actions)
         {
@@ -1114,7 +1250,7 @@ impl Widget for PrimeSpeechScreen {
         if self
             .view
             .button(ids!(
-                audio_player_bar.playback_controls.controls_row.stop_btn
+                content_wrapper.audio_player_bar.playback_controls.controls_row.stop_btn
             ))
             .clicked(actions)
         {
@@ -1211,6 +1347,68 @@ impl PrimeSpeechScreen {
             .set_text(cx, &label);
     }
 
+    fn set_generate_button_loading(&mut self, cx: &mut Cx, loading: bool) {
+        // Update button text
+        let button_text = if loading { "Generating..." } else { "Generate Speech" };
+        self.view
+            .button(ids!(
+                content_wrapper
+                    .main_content
+                    .left_column
+                    .content_area
+                    .input_section
+                    .bottom_bar
+                    .generate_section
+                    .generate_btn
+            ))
+            .set_text(cx, button_text);
+
+        // Show/hide spinner
+        self.view
+            .view(ids!(
+                content_wrapper
+                    .main_content
+                    .left_column
+                    .content_area
+                    .input_section
+                    .bottom_bar
+                    .generate_section
+                    .generate_spinner
+            ))
+            .set_visible(cx, loading);
+
+        // Start/stop spinner animation
+        if loading {
+            self.view
+                .view(ids!(
+                    content_wrapper
+                        .main_content
+                        .left_column
+                        .content_area
+                        .input_section
+                        .bottom_bar
+                        .generate_section
+                        .generate_spinner
+                ))
+                .animator_play(cx, ids!(spin.on));
+        } else {
+            self.view
+                .view(ids!(
+                    content_wrapper
+                        .main_content
+                        .left_column
+                        .content_area
+                        .input_section
+                        .bottom_bar
+                        .generate_section
+                        .generate_spinner
+                ))
+                .animator_play(cx, ids!(spin.off));
+        }
+
+        self.view.redraw(cx);
+    }
+
     fn update_player_bar(&mut self, cx: &mut Cx) {
         // Update status label
         let status_text = match &self.tts_status {
@@ -1233,7 +1431,7 @@ impl PrimeSpeechScreen {
         let is_playing = self.tts_status == TTSStatus::Playing;
         self.view
             .button(ids!(
-                audio_player_bar.playback_controls.controls_row.play_btn
+                content_wrapper.audio_player_bar.playback_controls.controls_row.play_btn
             ))
             .apply_over(
                 cx,
@@ -1251,7 +1449,7 @@ impl PrimeSpeechScreen {
             let time_str = format!("{:02}:{:02}", mins, secs);
             self.view
                 .label(ids!(
-                    audio_player_bar.playback_controls.progress_row.total_time
+                    content_wrapper.audio_player_bar.playback_controls.progress_row.total_time
                 ))
                 .set_text(cx, &time_str);
         }
@@ -1408,6 +1606,34 @@ impl PrimeSpeechScreen {
         };
 
         Ok(resampled)
+    }
+
+    fn show_toast(&mut self, cx: &mut Cx, message: &str) {
+        self.toast_message = message.to_string();
+        self.toast_visible = true;
+
+        // Update toast label
+        self.view
+            .label(ids!(toast_overlay.download_toast.toast_content.toast_label))
+            .set_text(cx, message);
+
+        // Show toast
+        self.view
+            .view(ids!(toast_overlay.download_toast))
+            .set_visible(cx, true);
+
+        // Start timer to auto-hide after 3 seconds
+        self.toast_timer = cx.start_timeout(3.0);
+
+        self.view.redraw(cx);
+    }
+
+    fn hide_toast(&mut self, cx: &mut Cx) {
+        self.toast_visible = false;
+        self.view
+            .view(ids!(toast_overlay.download_toast))
+            .set_visible(cx, false);
+        self.view.redraw(cx);
     }
 
     fn update_log_display(&mut self, cx: &mut Cx) {
@@ -1628,6 +1854,7 @@ impl PrimeSpeechScreen {
         self.stored_audio_sample_rate = 32000;
 
         self.tts_status = TTSStatus::Generating;
+        self.set_generate_button_loading(cx, true);
         self.update_player_bar(cx);
 
         // For PrimeSpeech, encode voice selection in prompt using VOICE: prefix
@@ -1646,6 +1873,7 @@ impl PrimeSpeechScreen {
         } else {
             self.add_log(cx, "[ERROR] [primespeech] Failed to send prompt to Dora");
             self.tts_status = TTSStatus::Error("Failed to send prompt".to_string());
+            self.set_generate_button_loading(cx, false);
             self.update_player_bar(cx);
         }
 
@@ -1687,7 +1915,7 @@ impl PrimeSpeechScreen {
         // Reset progress
         self.view
             .label(ids!(
-                audio_player_bar.playback_controls.progress_row.current_time
+                content_wrapper.audio_player_bar.playback_controls.progress_row.current_time
             ))
             .set_text(cx, "00:00");
         self.update_player_bar(cx);
@@ -1728,6 +1956,8 @@ impl PrimeSpeechScreen {
                         download_path.display()
                     ),
                 );
+                // Show success toast
+                self.show_toast(cx, "Downloaded successfully!");
             }
             Err(e) => {
                 self.add_log(

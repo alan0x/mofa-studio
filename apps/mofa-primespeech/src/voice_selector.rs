@@ -192,6 +192,7 @@ live_design! {
                 }
             }
 
+            // First row: Title + Clone button
             title_row = <View> {
                 width: Fill, height: Fit
                 flow: Right
@@ -241,6 +242,14 @@ live_design! {
                         }
                     }
                 }
+            }
+
+            // Second row: Selected voice badge (full width for long names)
+            badge_row = <View> {
+                width: Fill, height: Fit
+                flow: Right
+                align: {x: 1.0, y: 0.5}
+                margin: {top: 6}
 
                 // Selected voice badge
                 selected_voice_badge = <RoundedView> {
@@ -394,7 +403,7 @@ impl Widget for VoiceSelector {
                 self.selected_voice_id = Some(voice_id.clone());
 
                 // Update selected voice label in header badge
-                self.view.label(ids!(header.title_row.selected_voice_badge.selected_voice_label)).set_text(cx, &voice_name);
+                self.view.label(ids!(header.badge_row.selected_voice_badge.selected_voice_label)).set_text(cx, &voice_name);
 
                 cx.widget_action(
                     self.widget_uid(),
@@ -593,12 +602,12 @@ impl VoiceSelectorRef {
             });
 
             // Selected voice badge
-            inner.view.view(ids!(header.title_row.selected_voice_badge)).apply_over(cx, live! {
+            inner.view.view(ids!(header.badge_row.selected_voice_badge)).apply_over(cx, live! {
                 draw_bg: { dark_mode: (dark_mode) }
             });
 
             // Selected voice label
-            inner.view.label(ids!(header.title_row.selected_voice_badge.selected_voice_label)).apply_over(cx, live! {
+            inner.view.label(ids!(header.badge_row.selected_voice_badge.selected_voice_label)).apply_over(cx, live! {
                 draw_text: { dark_mode: (dark_mode) }
             });
 
