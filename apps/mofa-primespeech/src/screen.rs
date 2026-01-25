@@ -4,6 +4,7 @@ use crate::audio_player::TTSPlayer;
 use crate::dora_integration::DoraIntegration;
 use crate::log_bridge;
 use crate::mofa_hero::{ConnectionStatus, MofaHeroAction, MofaHeroWidgetExt};
+use crate::voice_clone_modal::{VoiceCloneModalAction, VoiceCloneModalWidgetExt};
 use crate::voice_data::TTSStatus;
 use crate::voice_selector::{VoiceSelectorAction, VoiceSelectorWidgetExt};
 use hound::WavReader;
@@ -18,6 +19,7 @@ live_design! {
     use mofa_widgets::theme::*;
     use crate::mofa_hero::MofaHero;
     use crate::voice_selector::VoiceSelector;
+    use crate::voice_clone_modal::VoiceCloneModal;
 
     // Layout constants
     SECTION_SPACING = 12.0
@@ -193,7 +195,7 @@ live_design! {
     // PrimeSpeech Screen - main layout with bottom audio player bar
     pub PrimeSpeechScreen = {{PrimeSpeechScreen}} {
         width: Fill, height: Fill
-        flow: Down
+        flow: Overlay
         spacing: 0
         padding: 0
 
@@ -204,6 +206,13 @@ live_design! {
                 return mix((DARK_BG), (DARK_BG_DARK), self.dark_mode);
             }
         }
+
+        // Content wrapper (contains main layout)
+        content_wrapper = <View> {
+            width: Fill, height: Fill
+            flow: Down
+            spacing: 0
+            padding: 0
 
         // Main content area (fills remaining space)
         main_content = <View> {
@@ -794,6 +803,10 @@ live_design! {
                 }
             }
         }
+        } // End content_wrapper
+
+        // Voice clone modal (overlay)
+        voice_clone_modal = <VoiceCloneModal> {}
     }
 }
 
@@ -965,7 +978,8 @@ impl Widget for PrimeSpeechScreen {
                     self.current_voice_name = voice_id.clone();
                     self.view
                         .label(ids!(
-                            audio_player_bar
+                            content_wrapper
+                                .audio_player_bar
                                 .voice_info
                                 .voice_name_container
                                 .current_voice_name
@@ -975,7 +989,11 @@ impl Widget for PrimeSpeechScreen {
                     let initial = voice_id.chars().next().unwrap_or('?').to_string();
                     self.view
                         .label(ids!(
-                            audio_player_bar.voice_info.voice_avatar.avatar_initial
+                            content_wrapper
+                                .audio_player_bar
+                                .voice_info
+                                .voice_avatar
+                                .avatar_initial
                         ))
                         .set_text(cx, &initial);
                     self.add_log(
@@ -986,7 +1004,65 @@ impl Widget for PrimeSpeechScreen {
                 VoiceSelectorAction::PreviewRequested(voice_id) => {
                     self.handle_preview_request(cx, &voice_id);
                 }
+                VoiceSelectorAction::CloneVoiceClicked => {
+                    // Show the voice clone modal
+                    self.view
+                        .voice_clone_modal(ids!(voice_clone_modal))
+                        .show(cx);
+                    self.add_log(cx, "[INFO] [primespeech] Opening voice clone dialog...");
+                }
+                VoiceSelectorAction::DeleteVoiceClicked(voice_id) => {
+                    // Delete custom voice
+                    let voice_selector = self.view.voice_selector(ids!(
+                        content_wrapper
+                            .main_content
+                            .left_column
+                            .content_area
+                            .controls_panel
+                            .voice_section
+                            .voice_selector
+                    ));
+                    match voice_selector.delete_custom_voice(cx, &voice_id) {
+                        Ok(_) => {
+                            self.add_log(
+                                cx,
+                                &format!("[INFO] [primespeech] Deleted voice: {}", voice_id),
+                            );
+                        }
+                        Err(e) => {
+                            self.add_log(
+                                cx,
+                                &format!("[ERROR] [primespeech] Failed to delete voice: {}", e),
+                            );
+                        }
+                    }
+                }
                 VoiceSelectorAction::None => {}
+            }
+
+            // Handle voice clone modal actions
+            match action.as_widget_action().cast() {
+                VoiceCloneModalAction::VoiceCreated(voice) => {
+                    // Add the new voice to the selector
+                    let voice_selector = self.view.voice_selector(ids!(
+                        content_wrapper
+                            .main_content
+                            .left_column
+                            .content_area
+                            .controls_panel
+                            .voice_section
+                            .voice_selector
+                    ));
+                    voice_selector.add_custom_voice(cx, voice.clone());
+                    self.add_log(
+                        cx,
+                        &format!("[INFO] [primespeech] Voice '{}' created successfully!", voice.name),
+                    );
+                }
+                VoiceCloneModalAction::Closed => {
+                    // Modal closed, nothing to do
+                }
+                VoiceCloneModalAction::None => {}
             }
         }
 
@@ -1048,7 +1124,7 @@ impl Widget for PrimeSpeechScreen {
         // Handle download button in audio player bar
         if self
             .view
-            .button(ids!(audio_player_bar.download_section.download_btn))
+            .button(ids!(content_wrapper.audio_player_bar.download_section.download_btn))
             .clicked(actions)
         {
             self.download_audio(cx);
@@ -1074,14 +1150,14 @@ impl Widget for PrimeSpeechScreen {
         // Handle toggle log panel button
         if self
             .view
-            .button(ids!(main_content.log_section.toggle_column.toggle_log_btn))
+            .button(ids!(content_wrapper.main_content.log_section.toggle_column.toggle_log_btn))
             .clicked(actions)
         {
             self.toggle_log_panel(cx);
         }
 
         // Handle splitter
-        let splitter = self.view.view(ids!(main_content.splitter));
+        let splitter = self.view.view(ids!(content_wrapper.main_content.splitter));
         match event.hits(cx, splitter.area()) {
             Hit::FingerDown(_) => {
                 self.splitter_dragging = true;
@@ -1186,7 +1262,8 @@ impl PrimeSpeechScreen {
     fn handle_preview_request(&mut self, cx: &mut Cx, voice_id: &str) {
         // Get the voice selector to check preview audio path
         let voice_selector = self.view.voice_selector(ids!(
-            main_content
+            content_wrapper
+                .main_content
                 .left_column
                 .content_area
                 .controls_panel
@@ -1366,30 +1443,30 @@ impl PrimeSpeechScreen {
 
         if self.log_panel_collapsed {
             self.view
-                .view(ids!(main_content.log_section))
+                .view(ids!(content_wrapper.main_content.log_section))
                 .apply_over(cx, live! { width: Fit });
             self.view
-                .view(ids!(main_content.log_section.log_content_column))
+                .view(ids!(content_wrapper.main_content.log_section.log_content_column))
                 .set_visible(cx, false);
             self.view
-                .button(ids!(main_content.log_section.toggle_column.toggle_log_btn))
+                .button(ids!(content_wrapper.main_content.log_section.toggle_column.toggle_log_btn))
                 .set_text(cx, "<");
             self.view
-                .view(ids!(main_content.splitter))
+                .view(ids!(content_wrapper.main_content.splitter))
                 .apply_over(cx, live! { width: 0 });
         } else {
             let width = self.log_panel_width;
             self.view
-                .view(ids!(main_content.log_section))
+                .view(ids!(content_wrapper.main_content.log_section))
                 .apply_over(cx, live! { width: (width) });
             self.view
-                .view(ids!(main_content.log_section.log_content_column))
+                .view(ids!(content_wrapper.main_content.log_section.log_content_column))
                 .set_visible(cx, true);
             self.view
-                .button(ids!(main_content.log_section.toggle_column.toggle_log_btn))
+                .button(ids!(content_wrapper.main_content.log_section.toggle_column.toggle_log_btn))
                 .set_text(cx, ">");
             self.view
-                .view(ids!(main_content.splitter))
+                .view(ids!(content_wrapper.main_content.splitter))
                 .apply_over(cx, live! { width: 16 });
         }
 
@@ -1406,7 +1483,7 @@ impl PrimeSpeechScreen {
         self.log_panel_width = new_log_width;
 
         self.view
-            .view(ids!(main_content.log_section))
+            .view(ids!(content_wrapper.main_content.log_section))
             .apply_over(cx, live! { width: (new_log_width) });
 
         self.view.redraw(cx);
@@ -1427,7 +1504,7 @@ impl PrimeSpeechScreen {
             );
             self.update_log_display(cx);
             self.view
-                .mofa_hero(ids!(main_content.left_column.hero))
+                .mofa_hero(ids!(content_wrapper.main_content.left_column.hero))
                 .set_connection_status(cx, ConnectionStatus::Failed);
             return;
         }
@@ -1442,10 +1519,10 @@ impl PrimeSpeechScreen {
         }
 
         self.view
-            .mofa_hero(ids!(main_content.left_column.hero))
+            .mofa_hero(ids!(content_wrapper.main_content.left_column.hero))
             .set_running(cx, true);
         self.view
-            .mofa_hero(ids!(main_content.left_column.hero))
+            .mofa_hero(ids!(content_wrapper.main_content.left_column.hero))
             .set_connection_status(cx, ConnectionStatus::Connecting);
 
         self.log_entries
@@ -1453,7 +1530,7 @@ impl PrimeSpeechScreen {
         self.update_log_display(cx);
 
         self.view
-            .mofa_hero(ids!(main_content.left_column.hero))
+            .mofa_hero(ids!(content_wrapper.main_content.left_column.hero))
             .set_connection_status(cx, ConnectionStatus::Connected);
 
         self.log_entries
@@ -1477,10 +1554,10 @@ impl PrimeSpeechScreen {
         }
 
         self.view
-            .mofa_hero(ids!(main_content.left_column.hero))
+            .mofa_hero(ids!(content_wrapper.main_content.left_column.hero))
             .set_running(cx, false);
         self.view
-            .mofa_hero(ids!(main_content.left_column.hero))
+            .mofa_hero(ids!(content_wrapper.main_content.left_column.hero))
             .set_connection_status(cx, ConnectionStatus::Stopped);
 
         self.log_entries
@@ -1530,7 +1607,8 @@ impl PrimeSpeechScreen {
         let voice_id = self
             .view
             .voice_selector(ids!(
-                main_content
+                content_wrapper
+                    .main_content
                     .left_column
                     .content_area
                     .controls_panel
@@ -1714,14 +1792,15 @@ impl PrimeSpeechScreenRef {
             // Apply dark mode to MofaHero
             inner
                 .view
-                .mofa_hero(ids!(main_content.left_column.hero))
+                .mofa_hero(ids!(content_wrapper.main_content.left_column.hero))
                 .apply_over(cx, live! { draw_bg: { dark_mode: (dark_mode) } });
 
             // Apply dark mode to voice selector
             inner
                 .view
                 .voice_selector(ids!(
-                    main_content
+                    content_wrapper
+                        .main_content
                         .left_column
                         .content_area
                         .controls_panel
@@ -1732,7 +1811,8 @@ impl PrimeSpeechScreenRef {
 
             // Apply dark mode to log markdown
             let log_markdown = inner.view.markdown(ids!(
-                main_content
+                content_wrapper
+                    .main_content
                     .log_section
                     .log_content_column
                     .log_scroll
@@ -1750,8 +1830,14 @@ impl PrimeSpeechScreenRef {
             // Apply dark mode to audio player bar
             inner
                 .view
-                .view(ids!(audio_player_bar))
+                .view(ids!(content_wrapper.audio_player_bar))
                 .apply_over(cx, live! { draw_bg: { dark_mode: (dark_mode) } });
+
+            // Apply dark mode to voice clone modal
+            inner
+                .view
+                .voice_clone_modal(ids!(voice_clone_modal))
+                .update_dark_mode(cx, dark_mode);
 
             inner.view.redraw(cx);
         }

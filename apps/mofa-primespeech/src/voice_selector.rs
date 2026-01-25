@@ -1,6 +1,7 @@
 //! Voice selector component - displays list of available voices
 
 use crate::voice_data::{get_builtin_voices, Voice};
+use crate::voice_persistence;
 use makepad_widgets::*;
 
 live_design! {
@@ -211,6 +212,36 @@ live_design! {
 
                 <View> { width: Fill, height: 1 }
 
+                // Clone voice button
+                clone_voice_btn = <Button> {
+                    width: Fit, height: 26
+                    padding: {left: 10, right: 10}
+                    text: "+ Clone"
+
+                    draw_bg: {
+                        instance dark_mode: 0.0
+                        instance hover: 0.0
+                        border_radius: 4.0
+                        fn pixel(self) -> vec4 {
+                            let sdf = Sdf2d::viewport(self.pos * self.rect_size);
+                            sdf.box(0., 0., self.rect_size.x, self.rect_size.y, self.border_radius);
+                            let base = mix((PRIMARY_50), (PRIMARY_900), self.dark_mode);
+                            let hover_color = mix((PRIMARY_100), (PRIMARY_800), self.dark_mode);
+                            sdf.fill(mix(base, hover_color, self.hover));
+                            sdf.stroke(mix((PRIMARY_300), (PRIMARY_600), self.dark_mode), 1.0);
+                            return sdf.result;
+                        }
+                    }
+
+                    draw_text: {
+                        instance dark_mode: 0.0
+                        text_style: <FONT_SEMIBOLD>{ font_size: 11.0 }
+                        fn get_color(self) -> vec4 {
+                            return mix((PRIMARY_600), (PRIMARY_300), self.dark_mode);
+                        }
+                    }
+                }
+
                 // Selected voice badge
                 selected_voice_badge = <RoundedView> {
                     width: Fit, height: Fit
@@ -264,12 +295,14 @@ live_design! {
     }
 }
 
-/// Action emitted when a voice is selected
+/// Action emitted by voice selector
 #[derive(Clone, Debug, DefaultNone)]
 pub enum VoiceSelectorAction {
     None,
-    VoiceSelected(String), // voice_id
+    VoiceSelected(String),    // voice_id
     PreviewRequested(String), // voice_id
+    CloneVoiceClicked,        // Open clone modal
+    DeleteVoiceClicked(String), // voice_id (custom voices only)
 }
 
 #[derive(Live, LiveHook, Widget)]
@@ -279,6 +312,9 @@ pub struct VoiceSelector {
 
     #[rust]
     voices: Vec<Voice>,
+
+    #[rust]
+    custom_voices: Vec<Voice>,
 
     #[rust]
     selected_voice_id: Option<String>,
@@ -302,7 +338,7 @@ impl Widget for VoiceSelector {
 
         // Initialize voices on first event
         if !self.initialized {
-            self.voices = get_builtin_voices();
+            self.reload_voices();
             // Select first voice by default
             if let Some(first) = self.voices.first() {
                 self.selected_voice_id = Some(first.id.clone());
@@ -315,6 +351,15 @@ impl Widget for VoiceSelector {
             Event::Actions(actions) => actions.as_slice(),
             _ => return,
         };
+
+        // Handle clone voice button click
+        if self.view.button(ids!(header.title_row.clone_voice_btn)).clicked(actions) {
+            cx.widget_action(
+                self.widget_uid(),
+                &scope.path,
+                VoiceSelectorAction::CloneVoiceClicked,
+            );
+        }
 
         // Handle portal list item events using items_with_actions pattern
         let portal_list = self.view.portal_list(ids!(voice_list));
@@ -364,7 +409,7 @@ impl Widget for VoiceSelector {
     fn draw_walk(&mut self, cx: &mut Cx2d, scope: &mut Scope, walk: Walk) -> DrawStep {
         // Initialize if needed (in case draw happens before handle_event)
         if !self.initialized {
-            self.voices = get_builtin_voices();
+            self.reload_voices();
             if let Some(first) = self.voices.first() {
                 self.selected_voice_id = Some(first.id.clone());
             }
@@ -434,6 +479,16 @@ impl Widget for VoiceSelector {
     }
 }
 
+impl VoiceSelector {
+    /// Reload all voices (built-in + custom)
+    fn reload_voices(&mut self) {
+        self.voices = get_builtin_voices();
+        self.custom_voices = voice_persistence::load_custom_voices();
+        // Append custom voices to the main list
+        self.voices.extend(self.custom_voices.clone());
+    }
+}
+
 impl VoiceSelectorRef {
     /// Get currently selected voice
     pub fn selected_voice(&self) -> Option<Voice> {
@@ -474,6 +529,44 @@ impl VoiceSelectorRef {
         false
     }
 
+    /// Reload voices from storage
+    pub fn reload_voices(&self, cx: &mut Cx) {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.reload_voices();
+            inner.view.redraw(cx);
+        }
+    }
+
+    /// Add a newly created custom voice
+    pub fn add_custom_voice(&self, cx: &mut Cx, voice: Voice) {
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.custom_voices.push(voice.clone());
+            inner.voices.push(voice);
+            inner.view.redraw(cx);
+        }
+    }
+
+    /// Delete a custom voice by ID
+    pub fn delete_custom_voice(&self, cx: &mut Cx, voice_id: &str) -> Result<(), String> {
+        // First remove from persistence
+        voice_persistence::remove_custom_voice(voice_id)?;
+
+        // Then update internal state
+        if let Some(mut inner) = self.borrow_mut() {
+            inner.custom_voices.retain(|v| v.id != voice_id);
+            inner.voices.retain(|v| v.id != voice_id);
+
+            // If the deleted voice was selected, select another
+            if inner.selected_voice_id.as_ref() == Some(&voice_id.to_string()) {
+                inner.selected_voice_id = inner.voices.first().map(|v| v.id.clone());
+            }
+
+            inner.view.redraw(cx);
+        }
+
+        Ok(())
+    }
+
     /// Update dark mode
     pub fn update_dark_mode(&self, cx: &mut Cx, dark_mode: f64) {
         if let Some(mut inner) = self.borrow_mut() {
@@ -490,6 +583,12 @@ impl VoiceSelectorRef {
 
             // Header title
             inner.view.label(ids!(header.title_row.title)).apply_over(cx, live! {
+                draw_text: { dark_mode: (dark_mode) }
+            });
+
+            // Clone button
+            inner.view.button(ids!(header.title_row.clone_voice_btn)).apply_over(cx, live! {
+                draw_bg: { dark_mode: (dark_mode) }
                 draw_text: { dark_mode: (dark_mode) }
             });
 
