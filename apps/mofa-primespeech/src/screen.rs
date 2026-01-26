@@ -240,9 +240,9 @@ live_design! {
         }
     }
 
-    // Play button (larger, primary color with play/pause icon)
+    // Play button (primary color with play/pause icon)
     PlayButton = <Button> {
-        width: 52, height: 52
+        width: 36, height: 36
         padding: 0
         margin: 0
 
@@ -255,7 +255,7 @@ live_design! {
             fn pixel(self) -> vec4 {
                 let sdf = Sdf2d::viewport(self.pos * self.rect_size);
                 let center = self.rect_size * 0.5;
-                sdf.circle(center.x, center.y, 25.0);
+                sdf.circle(center.x, center.y, 17.0);
 
                 let base = mix((PRIMARY_500), (PRIMARY_400), self.dark_mode);
                 let hover_color = mix((PRIMARY_600), (PRIMARY_300), self.dark_mode);
@@ -269,15 +269,15 @@ live_design! {
                 // Draw play or pause icon
                 if self.is_playing > 0.5 {
                     // Pause icon (two vertical bars)
-                    sdf.rect(18.0, 16.0, 5.0, 20.0);
+                    sdf.rect(13.0, 12.0, 3.0, 12.0);
                     sdf.fill((WHITE));
-                    sdf.rect(29.0, 16.0, 5.0, 20.0);
+                    sdf.rect(20.0, 12.0, 3.0, 12.0);
                     sdf.fill((WHITE));
                 } else {
                     // Play icon (triangle) - slightly offset right for optical center
-                    sdf.move_to(21.0, 15.0);
-                    sdf.line_to(37.0, 26.0);
-                    sdf.line_to(21.0, 37.0);
+                    sdf.move_to(14.0, 11.0);
+                    sdf.line_to(26.0, 18.0);
+                    sdf.line_to(14.0, 25.0);
                     sdf.close_path();
                     sdf.fill((WHITE));
                 }
@@ -690,10 +690,10 @@ live_design! {
 
         // Bottom audio player bar (like minimax)
         audio_player_bar = <View> {
-            width: Fill, height: 80
+            width: Fill, height: 90
             flow: Right
             align: {x: 0.5, y: 0.5}
-            padding: {left: 24, right: 24, top: 12, bottom: 12}
+            padding: {left: 24, right: 24, top: 8, bottom: 8}
             spacing: 0
 
             show_bg: true
@@ -753,8 +753,7 @@ live_design! {
                 voice_name_container = <View> {
                     width: Fit, height: Fit
                     flow: Down
-                    align: {y: 0.5}
-                    spacing: 4
+                    spacing: 2
 
                     current_voice_name = <Label> {
                         width: Fit, height: Fit
@@ -787,7 +786,7 @@ live_design! {
                 width: Fill, height: Fill
                 flow: Down
                 align: {x: 0.5, y: 0.5}
-                spacing: 10
+                spacing: 6
 
                 // Control buttons row - centered
                 controls_row = <View> {
@@ -802,24 +801,23 @@ live_design! {
                     }
 
                     // Stop button
-                    stop_btn = <IconButton> {
-                        text: "■"
-                    }
+                    // stop_btn = <IconButton> {
+                    //     text: "■"
+                    // }
                 }
 
-                // Progress bar row - centered with fixed max width
+                // Progress bar row - centered with max width constraint
                 progress_row = <View> {
-                    width: Fill, height: Fit
+                    width: 350, height: Fit
                     flow: Right
-                    align: {x: 0.5, y: 0.5}
-                    spacing: 10
+                    align: {y: 0.5}
+                    spacing: 8
 
                     current_time = <Label> {
-                        width: 50, height: Fit
-                        align: {x: 1.0, y: 0.5}
+                        width: Fit, height: Fit
                         draw_text: {
                             instance dark_mode: 0.0
-                            text_style: { font_size: 12.0 }
+                            text_style: { font_size: 11.0 }
                             fn get_color(self) -> vec4 {
                                 return mix((TEXT_TERTIARY), (TEXT_TERTIARY_DARK), self.dark_mode);
                             }
@@ -829,8 +827,8 @@ live_design! {
 
                     // Progress bar container
                     progress_bar_container = <View> {
-                        width: 400, height: 6
-                        align: {y: 0.5}
+                        width: Fill, height: 4
+                        margin: {top: 2}
 
                         // Progress bar
                         progress_bar = <View> {
@@ -842,12 +840,12 @@ live_design! {
                                 fn pixel(self) -> vec4 {
                                     let sdf = Sdf2d::viewport(self.pos * self.rect_size);
                                     // Background track
-                                    sdf.box(0.0, 0.0, self.rect_size.x, self.rect_size.y, 3.0);
+                                    sdf.box(0.0, 0.0, self.rect_size.x, self.rect_size.y, 2.0);
                                     let track_color = mix((GRAY_200), (GRAY_700), self.dark_mode);
                                     sdf.fill(track_color);
                                     // Progress fill
                                     let progress_width = self.rect_size.x * self.progress;
-                                    sdf.box(0.0, 0.0, progress_width, self.rect_size.y, 3.0);
+                                    sdf.box(0.0, 0.0, progress_width, self.rect_size.y, 2.0);
                                     sdf.fill((PRIMARY_500));
                                     return sdf.result;
                                 }
@@ -856,11 +854,10 @@ live_design! {
                     }
 
                     total_time = <Label> {
-                        width: 50, height: Fit
-                        align: {x: 0.0, y: 0.5}
+                        width: Fit, height: Fit
                         draw_text: {
                             instance dark_mode: 0.0
-                            text_style: { font_size: 12.0 }
+                            text_style: { font_size: 11.0 }
                             fn get_color(self) -> vec4 {
                                 return mix((TEXT_TERTIARY), (TEXT_TERTIARY_DARK), self.dark_mode);
                             }
@@ -919,11 +916,11 @@ live_design! {
         // Voice clone modal (overlay)
         voice_clone_modal = <VoiceCloneModal> {}
 
-        // Toast notification (bottom center overlay)
+        // Toast notification (top center overlay)
         toast_overlay = <View> {
             width: Fill, height: Fill
-            align: {x: 0.5, y: 1.0}
-            padding: {bottom: 100}
+            align: {x: 0.5, y: 0.0}
+            padding: {top: 80}
 
             download_toast = <Toast> {}
         }
@@ -1017,6 +1014,28 @@ impl Widget for PrimeSpeechScreen {
                 .push("[INFO] [primespeech] Click 'Start' to connect to MoFA bridge".to_string());
             // Update log display immediately
             self.update_log_display(cx);
+
+            // Collapse log panel by default
+            self.log_panel_collapsed = true;
+            self.log_panel_width = 320.0;
+            self.view
+                .view(ids!(content_wrapper.main_content.log_section))
+                .apply_over(cx, live! { width: Fit });
+            self.view
+                .view(ids!(content_wrapper.main_content.log_section.log_content_column))
+                .set_visible(cx, false);
+            self.view
+                .button(ids!(
+                    content_wrapper
+                        .main_content
+                        .log_section
+                        .toggle_column
+                        .toggle_log_btn
+                ))
+                .set_text(cx, "<");
+            self.view
+                .view(ids!(content_wrapper.main_content.splitter))
+                .apply_over(cx, live! { width: 0 });
         }
 
         // Initialize Dora (lazy, now controlled by MofaHero)
@@ -1065,15 +1084,19 @@ impl Widget for PrimeSpeechScreen {
                 }
             }
 
-            // Check if audio finished playing
+            // Update playback progress and check if finished
             if self.tts_status == TTSStatus::Playing {
                 if let Some(player) = &self.audio_player {
-                    if !player.is_playing() {
+                    if player.is_playing() {
+                        // Update playback time and progress bar
                         self.audio_playing_time += 0.1;
-                        if self.audio_playing_time > 0.5 {
-                            self.tts_status = TTSStatus::Ready;
-                            self.update_player_bar(cx);
-                        }
+                        self.update_playback_progress(cx);
+                    } else {
+                        // Audio finished - reset to Ready state
+                        self.tts_status = TTSStatus::Ready;
+                        self.audio_playing_time = 0.0;
+                        self.update_playback_progress(cx);
+                        self.update_player_bar(cx);
                     }
                 }
             }
@@ -1190,7 +1213,10 @@ impl Widget for PrimeSpeechScreen {
                     voice_selector.add_custom_voice(cx, voice.clone());
                     self.add_log(
                         cx,
-                        &format!("[INFO] [primespeech] Voice '{}' created successfully!", voice.name),
+                        &format!(
+                            "[INFO] [primespeech] Voice '{}' created successfully!",
+                            voice.name
+                        ),
                     );
                 }
                 VoiceCloneModalAction::Closed => {
@@ -1239,7 +1265,11 @@ impl Widget for PrimeSpeechScreen {
         if self
             .view
             .button(ids!(
-                content_wrapper.audio_player_bar.playback_controls.controls_row.play_btn
+                content_wrapper
+                    .audio_player_bar
+                    .playback_controls
+                    .controls_row
+                    .play_btn
             ))
             .clicked(actions)
         {
@@ -1250,7 +1280,11 @@ impl Widget for PrimeSpeechScreen {
         if self
             .view
             .button(ids!(
-                content_wrapper.audio_player_bar.playback_controls.controls_row.stop_btn
+                content_wrapper
+                    .audio_player_bar
+                    .playback_controls
+                    .controls_row
+                    .stop_btn
             ))
             .clicked(actions)
         {
@@ -1260,7 +1294,12 @@ impl Widget for PrimeSpeechScreen {
         // Handle download button in audio player bar
         if self
             .view
-            .button(ids!(content_wrapper.audio_player_bar.download_section.download_btn))
+            .button(ids!(
+                content_wrapper
+                    .audio_player_bar
+                    .download_section
+                    .download_btn
+            ))
             .clicked(actions)
         {
             self.download_audio(cx);
@@ -1286,7 +1325,13 @@ impl Widget for PrimeSpeechScreen {
         // Handle toggle log panel button
         if self
             .view
-            .button(ids!(content_wrapper.main_content.log_section.toggle_column.toggle_log_btn))
+            .button(ids!(
+                content_wrapper
+                    .main_content
+                    .log_section
+                    .toggle_column
+                    .toggle_log_btn
+            ))
             .clicked(actions)
         {
             self.toggle_log_panel(cx);
@@ -1349,7 +1394,11 @@ impl PrimeSpeechScreen {
 
     fn set_generate_button_loading(&mut self, cx: &mut Cx, loading: bool) {
         // Update button text
-        let button_text = if loading { "Generating..." } else { "Generate Speech" };
+        let button_text = if loading {
+            "Generating..."
+        } else {
+            "Generate Speech"
+        };
         self.view
             .button(ids!(
                 content_wrapper
@@ -1420,7 +1469,8 @@ impl PrimeSpeechScreen {
         };
         self.view
             .label(ids!(
-                audio_player_bar
+                content_wrapper
+                    .audio_player_bar
                     .voice_info
                     .voice_name_container
                     .status_label
@@ -1431,7 +1481,11 @@ impl PrimeSpeechScreen {
         let is_playing = self.tts_status == TTSStatus::Playing;
         self.view
             .button(ids!(
-                content_wrapper.audio_player_bar.playback_controls.controls_row.play_btn
+                content_wrapper
+                    .audio_player_bar
+                    .playback_controls
+                    .controls_row
+                    .play_btn
             ))
             .apply_over(
                 cx,
@@ -1449,10 +1503,59 @@ impl PrimeSpeechScreen {
             let time_str = format!("{:02}:{:02}", mins, secs);
             self.view
                 .label(ids!(
-                    content_wrapper.audio_player_bar.playback_controls.progress_row.total_time
+                    content_wrapper
+                        .audio_player_bar
+                        .playback_controls
+                        .progress_row
+                        .total_time
                 ))
                 .set_text(cx, &time_str);
         }
+
+        self.view.redraw(cx);
+    }
+
+    fn update_playback_progress(&mut self, cx: &mut Cx) {
+        // Calculate total duration and current position
+        if self.stored_audio_samples.is_empty() || self.stored_audio_sample_rate == 0 {
+            return;
+        }
+
+        let total_duration =
+            self.stored_audio_samples.len() as f32 / self.stored_audio_sample_rate as f32;
+        let current_time = self.audio_playing_time as f32;
+        let progress = (current_time / total_duration).min(1.0).max(0.0);
+
+        // Update current time label
+        let mins = (current_time / 60.0) as u32;
+        let secs = (current_time % 60.0) as u32;
+        let time_str = format!("{:02}:{:02}", mins, secs);
+        self.view
+            .label(ids!(
+                content_wrapper
+                    .audio_player_bar
+                    .playback_controls
+                    .progress_row
+                    .current_time
+            ))
+            .set_text(cx, &time_str);
+
+        // Update progress bar
+        self.view
+            .view(ids!(
+                content_wrapper
+                    .audio_player_bar
+                    .playback_controls
+                    .progress_row
+                    .progress_bar_container
+                    .progress_bar
+            ))
+            .apply_over(
+                cx,
+                live! {
+                    draw_bg: { progress: (progress as f64) }
+                },
+            );
 
         self.view.redraw(cx);
     }
@@ -1477,7 +1580,10 @@ impl PrimeSpeechScreen {
             }
             self.preview_playing_voice_id = None;
             voice_selector.set_preview_playing(cx, None);
-            self.add_log(cx, &format!("[INFO] [primespeech] Stopped preview: {}", voice_id));
+            self.add_log(
+                cx,
+                &format!("[INFO] [primespeech] Stopped preview: {}", voice_id),
+            );
             return;
         }
 
@@ -1490,7 +1596,10 @@ impl PrimeSpeechScreen {
         let voice = match voice_selector.get_voice(voice_id) {
             Some(v) => v,
             None => {
-                self.add_log(cx, &format!("[ERROR] [primespeech] Voice not found: {}", voice_id));
+                self.add_log(
+                    cx,
+                    &format!("[ERROR] [primespeech] Voice not found: {}", voice_id),
+                );
                 return;
             }
         };
@@ -1499,7 +1608,10 @@ impl PrimeSpeechScreen {
         let preview_file = match &voice.preview_audio {
             Some(f) => f.clone(),
             None => {
-                self.add_log(cx, &format!("[WARN] [primespeech] No preview audio for: {}", voice_id));
+                self.add_log(
+                    cx,
+                    &format!("[WARN] [primespeech] No preview audio for: {}", voice_id),
+                );
                 return;
             }
         };
@@ -1517,7 +1629,10 @@ impl PrimeSpeechScreen {
         if !audio_path.exists() {
             self.add_log(
                 cx,
-                &format!("[ERROR] [primespeech] Preview audio not found: {:?}", audio_path),
+                &format!(
+                    "[ERROR] [primespeech] Preview audio not found: {:?}",
+                    audio_path
+                ),
             );
             return;
         }
@@ -1539,7 +1654,11 @@ impl PrimeSpeechScreen {
                 voice_selector.set_preview_playing(cx, Some(voice_id.to_string()));
                 self.add_log(
                     cx,
-                    &format!("[INFO] [primespeech] Playing preview: {} ({:.1}s)", voice_id, samples.len() as f32 / 32000.0),
+                    &format!(
+                        "[INFO] [primespeech] Playing preview: {} ({:.1}s)",
+                        voice_id,
+                        samples.len() as f32 / 32000.0
+                    ),
                 );
             }
             Err(e) => {
@@ -1568,12 +1687,10 @@ impl PrimeSpeechScreen {
                     .map(|s| s as f32 / max_val)
                     .collect()
             }
-            hound::SampleFormat::Float => {
-                reader
-                    .into_samples::<f32>()
-                    .filter_map(Result::ok)
-                    .collect()
-            }
+            hound::SampleFormat::Float => reader
+                .into_samples::<f32>()
+                .filter_map(Result::ok)
+                .collect(),
         };
 
         // Convert to mono if stereo
@@ -1672,10 +1789,18 @@ impl PrimeSpeechScreen {
                 .view(ids!(content_wrapper.main_content.log_section))
                 .apply_over(cx, live! { width: Fit });
             self.view
-                .view(ids!(content_wrapper.main_content.log_section.log_content_column))
+                .view(ids!(
+                    content_wrapper.main_content.log_section.log_content_column
+                ))
                 .set_visible(cx, false);
             self.view
-                .button(ids!(content_wrapper.main_content.log_section.toggle_column.toggle_log_btn))
+                .button(ids!(
+                    content_wrapper
+                        .main_content
+                        .log_section
+                        .toggle_column
+                        .toggle_log_btn
+                ))
                 .set_text(cx, "<");
             self.view
                 .view(ids!(content_wrapper.main_content.splitter))
@@ -1686,10 +1811,18 @@ impl PrimeSpeechScreen {
                 .view(ids!(content_wrapper.main_content.log_section))
                 .apply_over(cx, live! { width: (width) });
             self.view
-                .view(ids!(content_wrapper.main_content.log_section.log_content_column))
+                .view(ids!(
+                    content_wrapper.main_content.log_section.log_content_column
+                ))
                 .set_visible(cx, true);
             self.view
-                .button(ids!(content_wrapper.main_content.log_section.toggle_column.toggle_log_btn))
+                .button(ids!(
+                    content_wrapper
+                        .main_content
+                        .log_section
+                        .toggle_column
+                        .toggle_log_btn
+                ))
                 .set_text(cx, ">");
             self.view
                 .view(ids!(content_wrapper.main_content.splitter))
@@ -1897,6 +2030,7 @@ impl PrimeSpeechScreen {
             }
             self.tts_status = TTSStatus::Playing;
             self.audio_playing_time = 0.0;
+            self.update_playback_progress(cx); // Reset progress bar to start
             self.add_log(cx, "[INFO] [primespeech] Playing audio...");
         } else {
             self.add_log(cx, "[WARN] [primespeech] No audio to play");
@@ -1915,7 +2049,11 @@ impl PrimeSpeechScreen {
         // Reset progress
         self.view
             .label(ids!(
-                content_wrapper.audio_player_bar.playback_controls.progress_row.current_time
+                content_wrapper
+                    .audio_player_bar
+                    .playback_controls
+                    .progress_row
+                    .current_time
             ))
             .set_text(cx, "00:00");
         self.update_player_bar(cx);

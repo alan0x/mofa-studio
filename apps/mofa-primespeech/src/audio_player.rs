@@ -226,6 +226,8 @@ fn run_audio_thread(
                     let read_count = buf.read(&mut source_chunk);
 
                     if read_count == 0 {
+                        // Buffer is empty - playback finished
+                        is_playing.store(false, Ordering::Relaxed);
                         for sample in data.iter_mut() {
                             *sample = T::from_sample(0.0);
                         }
