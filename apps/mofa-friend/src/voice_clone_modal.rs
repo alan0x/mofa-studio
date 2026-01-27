@@ -317,11 +317,11 @@ live_design! {
         }
     }
 
-    // Progress log area (compact)
+    // Progress log area
     ProgressLog = <View> {
-        width: Fill, height: 100
+        width: Fill, height: 120
         flow: Down
-        spacing: 4
+        spacing: 6
 
         label = <Label> {
             width: Fill, height: Fit
@@ -429,20 +429,10 @@ live_design! {
         // Overlay background
         overlay = <ModalOverlay> {}
 
-        // Modal container (scrollable when window is small)
-        modal_container = <ScrollYView> {
+        // Modal container (centered)
+        modal_container = <View> {
             width: Fill, height: Fill
-            align: {x: 0.5, y: 0.0}
-            padding: {top: 40, bottom: 40}
-            scroll_bars: <ScrollBars> {
-                show_scroll_x: false
-                show_scroll_y: true
-            }
-
-            // Centering wrapper
-            modal_wrapper = <View> {
-                width: Fill, height: Fit
-                align: {x: 0.5, y: 0.0}
+            align: {x: 0.5, y: 0.5}
 
             // Modal content
             modal_content = <RoundedView> {
@@ -528,8 +518,8 @@ live_design! {
                 body = <View> {
                     width: Fill, height: Fit
                     flow: Down
-                    padding: {left: 24, right: 24, top: 16, bottom: 16}
-                    spacing: 16
+                    padding: {left: 24, right: 24, top: 20, bottom: 20}
+                    spacing: 20
 
                     // File selector
                     file_selector = <FileSelector> {}
@@ -538,7 +528,7 @@ live_design! {
                     prompt_text_input = <LabeledInput> {
                         label = { text: "Reference Text (what the audio says)" }
                         input = {
-                            height: 60
+                            height: 80
                             empty_text: "Enter the exact text spoken in the reference audio..."
                         }
                     }
@@ -586,9 +576,8 @@ live_design! {
                         draw_text: { primary: 1.0 }
                     }
                 }
-            } // end modal_content
-            } // end modal_wrapper
-        } // end modal_container
+            }
+        }
     }
 }
 
@@ -645,37 +634,37 @@ impl Widget for VoiceCloneModal {
         };
 
         // Handle close button
-        if self.view.button(ids!(modal_container.modal_wrapper.modal_content.header.close_btn)).clicked(actions) {
+        if self.view.button(ids!(modal_container.modal_content.header.close_btn)).clicked(actions) {
             self.close(cx, scope);
         }
 
         // Handle cancel button
-        if self.view.button(ids!(modal_container.modal_wrapper.modal_content.footer.cancel_btn)).clicked(actions) {
+        if self.view.button(ids!(modal_container.modal_content.footer.cancel_btn)).clicked(actions) {
             self.close(cx, scope);
         }
 
         // Handle file select button
-        if self.view.button(ids!(modal_container.modal_wrapper.modal_content.body.file_selector.file_row.select_btn)).clicked(actions) {
+        if self.view.button(ids!(modal_container.modal_content.body.file_selector.file_row.select_btn)).clicked(actions) {
             self.open_file_dialog(cx);
         }
 
         // Handle preview button
-        if self.view.button(ids!(modal_container.modal_wrapper.modal_content.body.file_selector.file_row.preview_btn)).clicked(actions) {
+        if self.view.button(ids!(modal_container.modal_content.body.file_selector.file_row.preview_btn)).clicked(actions) {
             self.toggle_preview(cx);
         }
 
         // Handle language buttons
-        if self.view.button(ids!(modal_container.modal_wrapper.modal_content.body.language_selector.lang_row.zh_btn)).clicked(actions) {
+        if self.view.button(ids!(modal_container.modal_content.body.language_selector.lang_row.zh_btn)).clicked(actions) {
             self.selected_language = "zh".to_string();
             self.update_language_buttons(cx);
         }
-        if self.view.button(ids!(modal_container.modal_wrapper.modal_content.body.language_selector.lang_row.en_btn)).clicked(actions) {
+        if self.view.button(ids!(modal_container.modal_content.body.language_selector.lang_row.en_btn)).clicked(actions) {
             self.selected_language = "en".to_string();
             self.update_language_buttons(cx);
         }
 
         // Handle save button
-        if self.view.button(ids!(modal_container.modal_wrapper.modal_content.footer.save_btn)).clicked(actions) {
+        if self.view.button(ids!(modal_container.modal_content.footer.save_btn)).clicked(actions) {
             self.save_voice(cx, scope);
         }
 
@@ -686,7 +675,7 @@ impl Widget for VoiceCloneModal {
                 // Click was on overlay, not content
             } else {
                 // Check if click is outside modal content
-                let modal_content = self.view.view(ids!(modal_container.modal_wrapper.modal_content));
+                let modal_content = self.view.view(ids!(modal_container.modal_content));
                 if !modal_content.area().rect(cx).contains(fe.abs) {
                     self.close(cx, scope);
                 }
@@ -703,14 +692,14 @@ impl VoiceCloneModal {
     fn add_log(&mut self, cx: &mut Cx, message: &str) {
         self.log_messages.push(message.to_string());
         let log_text = self.log_messages.join("\n");
-        self.view.label(ids!(modal_container.modal_wrapper.modal_content.body.progress_log.log_scroll.log_content))
+        self.view.label(ids!(modal_container.modal_content.body.progress_log.log_scroll.log_content))
             .set_text(cx, &log_text);
         self.view.redraw(cx);
     }
 
     fn clear_log(&mut self, cx: &mut Cx) {
         self.log_messages.clear();
-        self.view.label(ids!(modal_container.modal_wrapper.modal_content.body.progress_log.log_scroll.log_content))
+        self.view.label(ids!(modal_container.modal_content.body.progress_log.log_scroll.log_content))
             .set_text(cx, "Ready to clone voice...");
         self.view.redraw(cx);
     }
@@ -732,7 +721,7 @@ impl VoiceCloneModal {
         let file_name = path.file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("Unknown");
-        self.view.label(ids!(modal_container.modal_wrapper.modal_content.body.file_selector.file_row.file_name))
+        self.view.label(ids!(modal_container.modal_content.body.file_selector.file_row.file_name))
             .set_text(cx, file_name);
 
         // Validate audio file
@@ -754,21 +743,21 @@ impl VoiceCloneModal {
                     "Duration: {:.1}s | Sample rate: {}Hz | Channels: {}",
                     info.duration_secs, info.sample_rate, info.channels
                 );
-                self.view.label(ids!(modal_container.modal_wrapper.modal_content.body.file_selector.audio_info))
+                self.view.label(ids!(modal_container.modal_content.body.file_selector.audio_info))
                     .set_text(cx, &info_text);
 
                 self.audio_info = Some(info);
                 self.selected_file = Some(path);
 
                 // Show preview button
-                self.view.button(ids!(modal_container.modal_wrapper.modal_content.body.file_selector.file_row.preview_btn))
+                self.view.button(ids!(modal_container.modal_content.body.file_selector.file_row.preview_btn))
                     .set_visible(cx, true);
             }
             Err(e) => {
                 self.add_log(cx, &format!("[ERROR] {}", e));
                 self.selected_file = None;
                 self.audio_info = None;
-                self.view.button(ids!(modal_container.modal_wrapper.modal_content.body.file_selector.file_row.preview_btn))
+                self.view.button(ids!(modal_container.modal_content.body.file_selector.file_row.preview_btn))
                     .set_visible(cx, false);
             }
         }
@@ -871,7 +860,7 @@ impl VoiceCloneModal {
 
     fn update_preview_button(&mut self, cx: &mut Cx, playing: bool) {
         let playing_val = if playing { 1.0 } else { 0.0 };
-        self.view.button(ids!(modal_container.modal_wrapper.modal_content.body.file_selector.file_row.preview_btn))
+        self.view.button(ids!(modal_container.modal_content.body.file_selector.file_row.preview_btn))
             .apply_over(cx, live! {
                 draw_bg: { playing: (playing_val) }
             });
@@ -882,13 +871,13 @@ impl VoiceCloneModal {
         let zh_selected = if self.selected_language == "zh" { 1.0 } else { 0.0 };
         let en_selected = if self.selected_language == "en" { 1.0 } else { 0.0 };
 
-        self.view.button(ids!(modal_container.modal_wrapper.modal_content.body.language_selector.lang_row.zh_btn))
+        self.view.button(ids!(modal_container.modal_content.body.language_selector.lang_row.zh_btn))
             .apply_over(cx, live! {
                 draw_bg: { selected: (zh_selected) }
                 draw_text: { selected: (zh_selected) }
             });
 
-        self.view.button(ids!(modal_container.modal_wrapper.modal_content.body.language_selector.lang_row.en_btn))
+        self.view.button(ids!(modal_container.modal_content.body.language_selector.lang_row.en_btn))
             .apply_over(cx, live! {
                 draw_bg: { selected: (en_selected) }
                 draw_text: { selected: (en_selected) }
@@ -900,7 +889,7 @@ impl VoiceCloneModal {
     fn save_voice(&mut self, cx: &mut Cx, scope: &mut Scope) {
         // Validate inputs
         let voice_name = self.view
-            .text_input(ids!(modal_container.modal_wrapper.modal_content.body.voice_name_input.input))
+            .text_input(ids!(modal_container.modal_content.body.voice_name_input.input))
             .text();
 
         if voice_name.trim().is_empty() {
@@ -909,7 +898,7 @@ impl VoiceCloneModal {
         }
 
         let prompt_text = self.view
-            .text_input(ids!(modal_container.modal_wrapper.modal_content.body.prompt_text_input.input))
+            .text_input(ids!(modal_container.modal_content.body.prompt_text_input.input))
             .text();
 
         if prompt_text.trim().is_empty() {
@@ -962,14 +951,8 @@ impl VoiceCloneModal {
 
         match voice_persistence::add_custom_voice(voice.clone()) {
             Ok(_) => {
-                self.add_log(cx, "");
-                self.add_log(cx, "✓ Voice created successfully!");
-                self.add_log(cx, "You can now close this dialog.");
+                self.add_log(cx, "[INFO] Voice created successfully!");
                 self.cloning_status = CloningStatus::Completed;
-
-                // Update save button to show completion
-                self.view.button(ids!(modal_container.modal_wrapper.modal_content.footer.save_btn))
-                    .set_text(cx, "✓ Done");
 
                 // Emit action
                 cx.widget_action(
@@ -978,8 +961,8 @@ impl VoiceCloneModal {
                     VoiceCloneModalAction::VoiceCreated(voice),
                 );
 
-                // Note: Don't auto-close, let user see the completion status
-                // User can close via Cancel button or X button
+                // Close modal after short delay
+                self.close(cx, scope);
             }
             Err(e) => {
                 self.add_log(cx, &format!("[ERROR] Failed to save: {}", e));
@@ -1002,15 +985,15 @@ impl VoiceCloneModal {
         self.clear_log(cx);
 
         // Reset form fields
-        self.view.text_input(ids!(modal_container.modal_wrapper.modal_content.body.voice_name_input.input))
+        self.view.text_input(ids!(modal_container.modal_content.body.voice_name_input.input))
             .set_text(cx, "");
-        self.view.text_input(ids!(modal_container.modal_wrapper.modal_content.body.prompt_text_input.input))
+        self.view.text_input(ids!(modal_container.modal_content.body.prompt_text_input.input))
             .set_text(cx, "");
-        self.view.label(ids!(modal_container.modal_wrapper.modal_content.body.file_selector.file_row.file_name))
+        self.view.label(ids!(modal_container.modal_content.body.file_selector.file_row.file_name))
             .set_text(cx, "No file selected");
-        self.view.label(ids!(modal_container.modal_wrapper.modal_content.body.file_selector.audio_info))
+        self.view.label(ids!(modal_container.modal_content.body.file_selector.audio_info))
             .set_text(cx, "");
-        self.view.button(ids!(modal_container.modal_wrapper.modal_content.body.file_selector.file_row.preview_btn))
+        self.view.button(ids!(modal_container.modal_content.body.file_selector.file_row.preview_btn))
             .set_visible(cx, false);
 
         // Hide modal
@@ -1049,17 +1032,17 @@ impl VoiceCloneModalRef {
             inner.dark_mode = dark_mode;
 
             // Apply to modal content
-            inner.view.view(ids!(modal_container.modal_wrapper.modal_content)).apply_over(cx, live! {
+            inner.view.view(ids!(modal_container.modal_content)).apply_over(cx, live! {
                 draw_bg: { dark_mode: (dark_mode) }
             });
 
             // Apply to header
-            inner.view.view(ids!(modal_container.modal_wrapper.modal_content.header)).apply_over(cx, live! {
+            inner.view.view(ids!(modal_container.modal_content.header)).apply_over(cx, live! {
                 draw_bg: { dark_mode: (dark_mode) }
             });
 
             // Apply to footer
-            inner.view.view(ids!(modal_container.modal_wrapper.modal_content.footer)).apply_over(cx, live! {
+            inner.view.view(ids!(modal_container.modal_content.footer)).apply_over(cx, live! {
                 draw_bg: { dark_mode: (dark_mode) }
             });
 

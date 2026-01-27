@@ -43,6 +43,7 @@ live_design! {
     use mofa_debate::screen::design::MoFaDebateScreen;
     use mofa_tts::screen::TTSScreen;
     use mofa_primespeech::screen::PrimeSpeechScreen;
+    use mofa_friend::screen::FriendScreen;
     use crate::widgets::tabs::TabWidget;
     use crate::widgets::tabs::TabBar;
 
@@ -343,6 +344,11 @@ live_design! {
                         }
 
                         tts_primespeech_page = <PrimeSpeechScreen> {
+                            width: Fill, height: Fill
+                            visible: false
+                        }
+
+                        friend_page = <FriendScreen> {
                             width: Fill, height: Fill
                             visible: false
                         }

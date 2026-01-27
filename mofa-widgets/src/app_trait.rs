@@ -102,6 +102,8 @@ pub enum PageId {
     TTS,
     /// PrimeSpeech TTS app (GPT-SoVITS)
     TTSPrimeSpeech,
+    /// Friend page
+    Friend,
     /// Settings page
     Settings,
     /// Generic app page (for demo apps)
@@ -116,6 +118,7 @@ impl PageId {
             PageId::Debate => live_id!(debate_tab),
             PageId::TTS => live_id!(tts_tab),
             PageId::TTSPrimeSpeech => live_id!(tts_primespeech_tab),
+            PageId::Friend => live_id!(friend_tab),
             PageId::Settings => live_id!(settings_tab),
             PageId::App => live_id!(app_tab),
         }
@@ -128,6 +131,7 @@ impl PageId {
             PageId::Debate => live_id!(debate_page),
             PageId::TTS => live_id!(tts_page),
             PageId::TTSPrimeSpeech => live_id!(tts_primespeech_page),
+            PageId::Friend => live_id!(friend_page),
             PageId::Settings => live_id!(settings_page),
             PageId::App => live_id!(app_page),
         }

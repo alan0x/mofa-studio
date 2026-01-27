@@ -35,6 +35,7 @@ pub fn get_cli_args() -> &'static Args {
 // App plugin system imports
 use mofa_debate::MoFaDebateApp;
 use mofa_fm::{MoFaFMApp, MoFaFMScreenWidgetRefExt};
+use mofa_friend::{FriendScreenWidgetRefExt, MoFaFriendApp};
 use mofa_primespeech::{MoFaPrimeSpeechApp, PrimeSpeechScreenWidgetRefExt};
 use mofa_settings::data::Preferences;
 use mofa_settings::screen::SettingsScreenWidgetRefExt;
@@ -466,6 +467,7 @@ impl LiveRegister for App {
         <MoFaDebateApp as MofaApp>::live_design(cx);
         <MoFaTTSApp as MofaApp>::live_design(cx);
         <MoFaPrimeSpeechApp as MofaApp>::live_design(cx);
+        <MoFaFriendApp as MofaApp>::live_design(cx);
         <MoFaSettingsApp as MofaApp>::live_design(cx);
 
         // Shell widgets (order matters - tabs before dashboard, apps before dashboard)
@@ -944,6 +946,16 @@ impl App {
                     .content_area
                     .main_content
                     .content
+                    .friend_page
+            ))
+            .apply_over(cx, live! { visible: (current == Some(PageId::Friend)) });
+        self.ui
+            .view(ids!(
+                body.dashboard_wrapper
+                    .dashboard_base
+                    .content_area
+                    .main_content
+                    .content
                     .app_page
             ))
             .apply_over(cx, live! { visible: (current == Some(PageId::App)) });
@@ -969,6 +981,7 @@ impl App {
                 "PrimeSpeech",
                 "GPT-SoVITS Text to Speech with voice cloning",
             ),
+            PageId::Friend => ("Friend", "Connect and interact with friends"),
             PageId::Settings => ("Settings", "Configure providers and preferences"),
             PageId::App => ("Demo App", "Select an app from the sidebar"),
         };

@@ -248,6 +248,13 @@ live_design! {
                 }
             }
 
+            friend_tab = <SidebarMenuButton> {
+                text: "Friend"
+                draw_icon: {
+                    svg_file: dep("crate://self/resources/icons/app.svg")
+                }
+            }
+
             // Apps container - height Fit so it adapts to content
             apps_wrapper = <View> {
                 width: Fill, height: Fit
@@ -336,6 +343,7 @@ pub enum SidebarSelection {
     Debate,
     TTS,
     TTSPrimeSpeech,
+    Friend,
     App(usize), // 1-20
     Settings,
 }
@@ -516,6 +524,14 @@ impl Widget for Sidebar {
             self.handle_selection(cx, SidebarSelection::TTSPrimeSpeech);
         }
 
+        if self
+            .view
+            .button(ids!(main_content.friend_tab))
+            .clicked(actions)
+        {
+            self.handle_selection(cx, SidebarSelection::Friend);
+        }
+
         // Handle Settings tab click
         if self.view.button(ids!(settings_tab)).clicked(actions) {
             self.handle_selection(cx, SidebarSelection::Settings);
@@ -636,6 +652,17 @@ impl Sidebar {
                     .set_visible(cx, false);
             }
 
+            SidebarSelection::Friend => {
+                self.view
+                    .button(ids!(main_content.friend_tab))
+                    .apply_over(cx, live! { draw_bg: { selected: 1.0 } });
+                // Hide pinned app when Friend is selected
+                self.pinned_app_name = None;
+                self.view
+                    .button(ids!(main_content.apps_wrapper.apps_scroll.pinned_app_btn))
+                    .set_visible(cx, false);
+            }
+
             SidebarSelection::App(app_idx) => {
                 self.set_app_button_selected(cx, *app_idx, true);
 
@@ -696,6 +723,7 @@ impl Sidebar {
             ids!(main_content.debate_tab),
             ids!(main_content.tts_tab),
             ids!(main_content.tts_primespeech_tab),
+            ids!(main_content.friend_tab),
             ids!(settings_tab),
             ids!(main_content.apps_wrapper.apps_scroll.pinned_app_btn)
         );
@@ -1065,6 +1093,13 @@ impl SidebarRef {
                             .apply_over(cx, live! { draw_bg: { selected: 1.0 } });
                     }
 
+                    SidebarSelection::Friend => {
+                        inner
+                            .view
+                            .button(ids!(main_content.friend_tab))
+                            .apply_over(cx, live! { draw_bg: { selected: 1.0 } });
+                    }
+
                     SidebarSelection::App(app_idx) => {
                         inner.set_app_button_selected(cx, app_idx, true);
 
@@ -1154,6 +1189,14 @@ impl SidebarRef {
                         draw_text: { dark_mode: (dark_mode) }
                     },
                 );
+
+            inner.view.button(ids!(main_content.friend_tab)).apply_over(
+                cx,
+                live! {
+                    draw_bg: { dark_mode: (dark_mode) }
+                    draw_text: { dark_mode: (dark_mode) }
+                },
+            );
 
             // Settings divider
             inner.view.view(ids!(settings_divider)).apply_over(

@@ -4,12 +4,13 @@ version.workspace = true
 edition.workspace = true
 
 [features]
-default = ["mofa-fm", "mofa-settings", "mofa-debate", "mofa-tts", "mofa-primespeech"]
+default = ["mofa-fm", "mofa-settings", "mofa-debate", "mofa-tts", "mofa-primespeech", "mofa-friend"]
 mofa-fm = ["dep:mofa-fm"]
 mofa-settings = ["dep:mofa-settings"]
 mofa-debate = ["dep:mofa-debate"]
 mofa-tts = ["dep:mofa-tts"]
 mofa-primespeech = ["dep:mofa-primespeech"]
+mofa-friend = ["dep:mofa-friend"]
 
 [dependencies]
 makepad-widgets.workspace = true
@@ -21,6 +22,7 @@ mofa-settings = { path = "../apps/mofa-settings", optional = true }
 mofa-debate = { path = "../apps/mofa-debate", optional = true }
 mofa-tts = { path = "../apps/mofa-tts", optional = true }
 mofa-primespeech = { path = "../apps/mofa-primespeech", optional = true }
+mofa-friend = { path = "../apps/mofa-friend", optional = true }
 
 # Audio
 cpal.workspace = true

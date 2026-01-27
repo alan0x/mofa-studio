@@ -1,4 +1,4 @@
-//! PrimeSpeech Screen - Main TTS interface using GPT-SoVITS
+//! Friend Screen - Main TTS interface using GPT-SoVITS
 
 use crate::audio_player::TTSPlayer;
 use crate::dora_integration::DoraIntegration;
@@ -294,8 +294,8 @@ live_design! {
         }
     }
 
-    // PrimeSpeech Screen - main layout with bottom audio player bar
-    pub PrimeSpeechScreen = {{PrimeSpeechScreen}} {
+    // Friend Screen - main layout with bottom audio player bar
+    pub FriendScreen = {{FriendScreen}} {
         width: Fill, height: Fill
         flow: Overlay
         spacing: 0
@@ -383,7 +383,7 @@ live_design! {
                                         return mix((TEXT_PRIMARY), (TEXT_PRIMARY_DARK), self.dark_mode);
                                     }
                                 }
-                                text: "PrimeSpeech (GPT-SoVITS)"
+                                text: "Friend"
                             }
                         }
 
@@ -396,7 +396,7 @@ live_design! {
                             text_input = <TextInput> {
                                 width: Fill, height: Fill
                                 padding: {left: 14, right: 14, top: 12, bottom: 12}
-                                empty_text: "Enter text to convert to speech..."
+                                empty_text: "Enter text to connect with friends..."
                                 text: "复杂的问题背后也许没有统一的答案，选择站在正方还是反方，其实取决于你对一系列价值判断的回答。"
                                 ascii_only: false
 
@@ -928,7 +928,7 @@ live_design! {
 }
 
 #[derive(Live, LiveHook, Widget)]
-pub struct PrimeSpeechScreen {
+pub struct FriendScreen {
     #[deref]
     view: View,
 
@@ -986,7 +986,7 @@ pub struct PrimeSpeechScreen {
     toast_message: String,
 }
 
-impl Widget for PrimeSpeechScreen {
+impl Widget for FriendScreen {
     fn handle_event(&mut self, cx: &mut Cx, event: &Event, scope: &mut Scope) {
         self.view.handle_event(cx, event, scope);
 
@@ -1001,17 +1001,17 @@ impl Widget for PrimeSpeechScreen {
             self.logs_initialized = true;
             // Start timer for polling
             self.update_timer = cx.start_interval(0.1);
-            // Initialize stored audio sample rate (PrimeSpeech uses 32000)
+            // Initialize stored audio sample rate (Friend uses 32000)
             self.stored_audio_sample_rate = 32000;
             // Initialize voice name
             self.current_voice_name = "Doubao".to_string();
             // Add initial log entries
             self.log_entries
-                .push("[INFO] [primespeech] MoFA PrimeSpeech initialized".to_string());
+                .push("[INFO] [friend] MoFA Friend initialized".to_string());
             self.log_entries
-                .push("[INFO] [primespeech] Default voice: Doubao (GPT-SoVITS)".to_string());
+                .push("[INFO] [friend] Default voice: Doubao (GPT-SoVITS)".to_string());
             self.log_entries
-                .push("[INFO] [primespeech] Click 'Start' to connect to MoFA bridge".to_string());
+                .push("[INFO] [friend] Click 'Start' to connect to MoFA bridge".to_string());
             // Update log display immediately
             self.update_log_display(cx);
 
@@ -1022,7 +1022,9 @@ impl Widget for PrimeSpeechScreen {
                 .view(ids!(content_wrapper.main_content.log_section))
                 .apply_over(cx, live! { width: Fit });
             self.view
-                .view(ids!(content_wrapper.main_content.log_section.log_content_column))
+                .view(ids!(
+                    content_wrapper.main_content.log_section.log_content_column
+                ))
                 .set_visible(cx, false);
             self.view
                 .button(ids!(
@@ -1072,7 +1074,7 @@ impl Widget for PrimeSpeechScreen {
                             self.add_log(
                                 cx,
                                 &format!(
-                                    "[INFO] [primespeech] Audio generated: {} samples, {:.1}s duration",
+                                    "[INFO] [friend] Audio generated: {} samples, {:.1}s duration",
                                     sample_count, duration_secs
                                 ),
                             );
@@ -1153,10 +1155,7 @@ impl Widget for PrimeSpeechScreen {
                                 .avatar_initial
                         ))
                         .set_text(cx, &initial);
-                    self.add_log(
-                        cx,
-                        &format!("[INFO] [primespeech] Voice selected: {}", voice_id),
-                    );
+                    self.add_log(cx, &format!("[INFO] [friend] Voice selected: {}", voice_id));
                 }
                 VoiceSelectorAction::PreviewRequested(voice_id) => {
                     self.handle_preview_request(cx, &voice_id);
@@ -1166,7 +1165,7 @@ impl Widget for PrimeSpeechScreen {
                     self.view
                         .voice_clone_modal(ids!(voice_clone_modal))
                         .show(cx);
-                    self.add_log(cx, "[INFO] [primespeech] Opening voice clone dialog...");
+                    self.add_log(cx, "[INFO] [friend] Opening voice clone dialog...");
                 }
                 VoiceSelectorAction::DeleteVoiceClicked(voice_id) => {
                     // Delete custom voice
@@ -1183,13 +1182,13 @@ impl Widget for PrimeSpeechScreen {
                         Ok(_) => {
                             self.add_log(
                                 cx,
-                                &format!("[INFO] [primespeech] Deleted voice: {}", voice_id),
+                                &format!("[INFO] [friend] Deleted voice: {}", voice_id),
                             );
                         }
                         Err(e) => {
                             self.add_log(
                                 cx,
-                                &format!("[ERROR] [primespeech] Failed to delete voice: {}", e),
+                                &format!("[ERROR] [friend] Failed to delete voice: {}", e),
                             );
                         }
                     }
@@ -1214,7 +1213,7 @@ impl Widget for PrimeSpeechScreen {
                     self.add_log(
                         cx,
                         &format!(
-                            "[INFO] [primespeech] Voice '{}' created successfully!",
+                            "[INFO] [friend] Voice '{}' created successfully!",
                             voice.name
                         ),
                     );
@@ -1360,7 +1359,7 @@ impl Widget for PrimeSpeechScreen {
     }
 }
 
-impl PrimeSpeechScreen {
+impl FriendScreen {
     fn add_log(&mut self, cx: &mut Cx, message: &str) {
         self.log_entries.push(message.to_string());
         self.update_log_display(cx);
@@ -1561,9 +1560,6 @@ impl PrimeSpeechScreen {
     }
 
     fn handle_preview_request(&mut self, cx: &mut Cx, voice_id: &str) {
-        use crate::voice_data::VoiceSource;
-        use crate::voice_persistence;
-
         // Get the voice selector to check preview audio path
         let voice_selector = self.view.voice_selector(ids!(
             content_wrapper
@@ -1585,7 +1581,7 @@ impl PrimeSpeechScreen {
             voice_selector.set_preview_playing(cx, None);
             self.add_log(
                 cx,
-                &format!("[INFO] [primespeech] Stopped preview: {}", voice_id),
+                &format!("[INFO] [friend] Stopped preview: {}", voice_id),
             );
             return;
         }
@@ -1601,54 +1597,38 @@ impl PrimeSpeechScreen {
             None => {
                 self.add_log(
                     cx,
-                    &format!("[ERROR] [primespeech] Voice not found: {}", voice_id),
+                    &format!("[ERROR] [friend] Voice not found: {}", voice_id),
                 );
                 return;
             }
         };
 
-        // Build the audio path based on voice source
-        let audio_path = if voice.source == VoiceSource::Custom {
-            // Custom voice: use reference_audio_path from persistence
-            match voice_persistence::get_reference_audio_path(&voice) {
-                Some(path) => path,
-                None => {
-                    self.add_log(
-                        cx,
-                        &format!("[ERROR] [primespeech] Custom voice has no reference audio: {}", voice_id),
-                    );
-                    return;
-                }
+        // Get preview audio filename
+        let preview_file = match &voice.preview_audio {
+            Some(f) => f.clone(),
+            None => {
+                self.add_log(
+                    cx,
+                    &format!("[WARN] [friend] No preview audio for: {}", voice_id),
+                );
+                return;
             }
-        } else {
-            // Built-in voice: use preview_audio from models directory
-            let preview_file = match &voice.preview_audio {
-                Some(f) => f.clone(),
-                None => {
-                    self.add_log(
-                        cx,
-                        &format!("[WARN] [primespeech] No preview audio for: {}", voice_id),
-                    );
-                    return;
-                }
-            };
-
-            let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-            home.join(".dora")
-                .join("models")
-                .join("primespeech")
-                .join("moyoyo")
-                .join("ref_audios")
-                .join(&preview_file)
         };
+
+        // Build the full path to the reference audio
+        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+        let audio_path = home
+            .join(".dora")
+            .join("models")
+            .join("friend")
+            .join("moyoyo")
+            .join("ref_audios")
+            .join(&preview_file);
 
         if !audio_path.exists() {
             self.add_log(
                 cx,
-                &format!(
-                    "[ERROR] [primespeech] Preview audio not found: {:?}",
-                    audio_path
-                ),
+                &format!("[ERROR] [friend] Preview audio not found: {:?}", audio_path),
             );
             return;
         }
@@ -1671,7 +1651,7 @@ impl PrimeSpeechScreen {
                 self.add_log(
                     cx,
                     &format!(
-                        "[INFO] [primespeech] Playing preview: {} ({:.1}s)",
+                        "[INFO] [friend] Playing preview: {} ({:.1}s)",
                         voice_id,
                         samples.len() as f32 / 32000.0
                     ),
@@ -1680,7 +1660,7 @@ impl PrimeSpeechScreen {
             Err(e) => {
                 self.add_log(
                     cx,
-                    &format!("[ERROR] [primespeech] Failed to load preview: {}", e),
+                    &format!("[ERROR] [friend] Failed to load preview: {}", e),
                 );
             }
         }
@@ -1872,10 +1852,11 @@ impl PrimeSpeechScreen {
             return;
         }
 
-        let dataflow_path = PathBuf::from("apps/mofa-primespeech/dataflow/tts.yml");
+        let dataflow_path = PathBuf::from("apps/mofa-friend/dataflow/tts.yml");
         if !dataflow_path.exists() {
             self.log_entries.push(
-                "[ERROR] [primespeech] Dataflow file not found: apps/mofa-primespeech/dataflow/tts.yml".to_string(),
+                "[ERROR] [friend] Dataflow file not found: apps/mofa-friend/dataflow/tts.yml"
+                    .to_string(),
             );
             self.update_log_display(cx);
             self.view
@@ -1885,7 +1866,7 @@ impl PrimeSpeechScreen {
         }
 
         self.log_entries
-            .push("[INFO] [primespeech] Starting PrimeSpeech dataflow...".to_string());
+            .push("[INFO] [friend] Starting Friend dataflow...".to_string());
         self.update_log_display(cx);
 
         // Start dora
@@ -1901,7 +1882,7 @@ impl PrimeSpeechScreen {
             .set_connection_status(cx, ConnectionStatus::Connecting);
 
         self.log_entries
-            .push("[INFO] [primespeech] Dataflow started, connecting...".to_string());
+            .push("[INFO] [friend] Dataflow started, connecting...".to_string());
         self.update_log_display(cx);
 
         self.view
@@ -1909,7 +1890,7 @@ impl PrimeSpeechScreen {
             .set_connection_status(cx, ConnectionStatus::Connected);
 
         self.log_entries
-            .push("[INFO] [primespeech] Connected to MoFA bridge".to_string());
+            .push("[INFO] [friend] Connected to MoFA bridge".to_string());
         self.update_log_display(cx);
     }
 
@@ -1920,7 +1901,7 @@ impl PrimeSpeechScreen {
         }
 
         self.log_entries
-            .push("[INFO] [primespeech] Stopping PrimeSpeech dataflow...".to_string());
+            .push("[INFO] [friend] Stopping Friend dataflow...".to_string());
         self.update_log_display(cx);
 
         // Stop dora
@@ -1936,7 +1917,7 @@ impl PrimeSpeechScreen {
             .set_connection_status(cx, ConnectionStatus::Stopped);
 
         self.log_entries
-            .push("[INFO] [primespeech] Dataflow stopped".to_string());
+            .push("[INFO] [friend] Dataflow stopped".to_string());
         self.update_log_display(cx);
     }
 
@@ -1946,7 +1927,7 @@ impl PrimeSpeechScreen {
         if !is_running {
             self.add_log(
                 cx,
-                "[WARN] [primespeech] Bridge not connected. Please start MoFA first.",
+                "[WARN] [friend] Bridge not connected. Please start MoFA first.",
             );
             return;
         }
@@ -1965,7 +1946,7 @@ impl PrimeSpeechScreen {
         if text.is_empty() {
             self.add_log(
                 cx,
-                "[WARN] [primespeech] Please enter some text to convert to speech.",
+                "[WARN] [friend] Please enter some text to convert to speech.",
             );
             return;
         }
@@ -1976,7 +1957,7 @@ impl PrimeSpeechScreen {
         };
         self.add_log(
             cx,
-            &format!("[INFO] [primespeech] Generating speech for: '{}'", log_text),
+            &format!("[INFO] [friend] Generating speech for: '{}'", log_text),
         );
 
         let voice_id = self
@@ -1993,10 +1974,7 @@ impl PrimeSpeechScreen {
             .selected_voice_id()
             .unwrap_or_else(|| "Luo Xiang".to_string());
 
-        self.add_log(
-            cx,
-            &format!("[INFO] [primespeech] Using voice: {}", voice_id),
-        );
+        self.add_log(cx, &format!("[INFO] [friend] Using voice: {}", voice_id));
 
         // Clear previous audio
         self.stored_audio_samples.clear();
@@ -2006,8 +1984,8 @@ impl PrimeSpeechScreen {
         self.set_generate_button_loading(cx, true);
         self.update_player_bar(cx);
 
-        // For PrimeSpeech, encode voice selection in prompt using VOICE: prefix
-        // The dora-primespeech node will parse this format
+        // For Friend, encode voice selection in prompt using VOICE: prefix
+        // The dora-friend node will parse this format
         let prompt = format!("VOICE:{}|{}", voice_id, text);
 
         // Send prompt to dora
@@ -2018,9 +1996,9 @@ impl PrimeSpeechScreen {
             .unwrap_or(false);
 
         if send_result {
-            self.add_log(cx, "[INFO] [primespeech] Prompt sent to TTS engine");
+            self.add_log(cx, "[INFO] [friend] Prompt sent to TTS engine");
         } else {
-            self.add_log(cx, "[ERROR] [primespeech] Failed to send prompt to Dora");
+            self.add_log(cx, "[ERROR] [friend] Failed to send prompt to Dora");
             self.tts_status = TTSStatus::Error("Failed to send prompt".to_string());
             self.set_generate_button_loading(cx, false);
             self.update_player_bar(cx);
@@ -2038,7 +2016,7 @@ impl PrimeSpeechScreen {
                 player.pause();
             }
             self.tts_status = TTSStatus::Ready;
-            self.add_log(cx, "[INFO] [primespeech] Playback paused");
+            self.add_log(cx, "[INFO] [friend] Playback paused");
         } else if !self.stored_audio_samples.is_empty() {
             // Play
             if let Some(player) = &self.audio_player {
@@ -2047,9 +2025,9 @@ impl PrimeSpeechScreen {
             self.tts_status = TTSStatus::Playing;
             self.audio_playing_time = 0.0;
             self.update_playback_progress(cx); // Reset progress bar to start
-            self.add_log(cx, "[INFO] [primespeech] Playing audio...");
+            self.add_log(cx, "[INFO] [friend] Playing audio...");
         } else {
-            self.add_log(cx, "[WARN] [primespeech] No audio to play");
+            self.add_log(cx, "[WARN] [friend] No audio to play");
         }
         self.update_player_bar(cx);
     }
@@ -2060,7 +2038,7 @@ impl PrimeSpeechScreen {
         }
         if self.tts_status == TTSStatus::Playing {
             self.tts_status = TTSStatus::Ready;
-            self.add_log(cx, "[INFO] [primespeech] Playback stopped");
+            self.add_log(cx, "[INFO] [friend] Playback stopped");
         }
         // Reset progress
         self.view
@@ -2077,7 +2055,7 @@ impl PrimeSpeechScreen {
 
     fn download_audio(&mut self, cx: &mut Cx) {
         if self.stored_audio_samples.is_empty() {
-            self.add_log(cx, "[WARN] [primespeech] No audio to download");
+            self.add_log(cx, "[WARN] [friend] No audio to download");
             return;
         }
 
@@ -2086,7 +2064,7 @@ impl PrimeSpeechScreen {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0);
-        let filename = format!("primespeech_output_{}.wav", timestamp);
+        let filename = format!("friend_output_{}.wav", timestamp);
 
         // Get downloads folder or current directory
         let download_path = if let Some(home) = dirs::home_dir() {
@@ -2106,7 +2084,7 @@ impl PrimeSpeechScreen {
                 self.add_log(
                     cx,
                     &format!(
-                        "[INFO] [primespeech] Audio saved to: {}",
+                        "[INFO] [friend] Audio saved to: {}",
                         download_path.display()
                     ),
                 );
@@ -2114,10 +2092,7 @@ impl PrimeSpeechScreen {
                 self.show_toast(cx, "Downloaded successfully!");
             }
             Err(e) => {
-                self.add_log(
-                    cx,
-                    &format!("[ERROR] [primespeech] Failed to save audio: {}", e),
-                );
+                self.add_log(cx, &format!("[ERROR] [friend] Failed to save audio: {}", e));
             }
         }
     }
@@ -2165,7 +2140,7 @@ impl PrimeSpeechScreen {
     }
 }
 
-impl PrimeSpeechScreenRef {
+impl FriendScreenRef {
     pub fn update_dark_mode(&self, cx: &mut Cx, dark_mode: f64) {
         if let Some(mut inner) = self.borrow_mut() {
             inner.dark_mode = dark_mode;
