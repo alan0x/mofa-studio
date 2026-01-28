@@ -1979,19 +1979,22 @@ impl PrimeSpeechScreen {
             &format!("[INFO] [primespeech] Generating speech for: '{}'", log_text),
         );
 
-        let voice_id = self
-            .view
-            .voice_selector(ids!(
-                content_wrapper
-                    .main_content
-                    .left_column
-                    .content_area
-                    .controls_panel
-                    .voice_section
-                    .voice_selector
-            ))
+        let voice_selector = self.view.voice_selector(ids!(
+            content_wrapper
+                .main_content
+                .left_column
+                .content_area
+                .controls_panel
+                .voice_section
+                .voice_selector
+        ));
+
+        let voice_id = voice_selector
             .selected_voice_id()
             .unwrap_or_else(|| "Luo Xiang".to_string());
+
+        // Get full voice info to check if it's a custom voice
+        let voice_info = voice_selector.get_voice(&voice_id);
 
         self.add_log(
             cx,
@@ -2008,7 +2011,47 @@ impl PrimeSpeechScreen {
 
         // For PrimeSpeech, encode voice selection in prompt using VOICE: prefix
         // The dora-primespeech node will parse this format
-        let prompt = format!("VOICE:{}|{}", voice_id, text);
+        // For custom voices, use extended format: VOICE:CUSTOM|<ref_audio_path>|<prompt_text>|<language>|<text>
+        let prompt = if let Some(voice) = voice_info {
+            if voice.source == crate::voice_data::VoiceSource::Custom {
+                // Custom voice - need to send reference audio path and prompt text
+                if let (Some(ref_audio), Some(prompt_text)) =
+                    (&voice.reference_audio_path, &voice.prompt_text)
+                {
+                    // Get absolute path for reference audio
+                    let ref_audio_path = crate::voice_persistence::get_reference_audio_path(&voice)
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or_else(|| ref_audio.clone());
+
+                    self.add_log(
+                        cx,
+                        &format!(
+                            "[INFO] [primespeech] Custom voice ref audio: {}",
+                            ref_audio_path
+                        ),
+                    );
+
+                    // Extended format for custom voices
+                    // VOICE:CUSTOM|<ref_audio_path>|<prompt_text>|<language>|<text_to_speak>
+                    format!(
+                        "VOICE:CUSTOM|{}|{}|{}|{}",
+                        ref_audio_path, prompt_text, voice.language, text
+                    )
+                } else {
+                    self.add_log(
+                        cx,
+                        "[WARN] [primespeech] Custom voice missing ref audio or prompt text, using default",
+                    );
+                    format!("VOICE:Doubao|{}", text)
+                }
+            } else {
+                // Built-in voice - use simple format
+                format!("VOICE:{}|{}", voice_id, text)
+            }
+        } else {
+            // Voice not found, use default
+            format!("VOICE:{}|{}", voice_id, text)
+        };
 
         // Send prompt to dora
         let send_result = self

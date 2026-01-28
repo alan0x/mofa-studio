@@ -198,6 +198,16 @@ class StreamingMoYoYoTTSWrapper:
         print(f"DEBUG [_init_tts]: voice_config vits_weights={voice_config['vits_weights']}", file=sys.stderr, flush=True)
         print(f"DEBUG [_init_tts]: voice_config ref_audio={voice_config['ref_audio']}", file=sys.stderr, flush=True)
         print(f"DEBUG [_init_tts]: voice_config prompt_text={voice_config['prompt_text'][:50]}...", file=sys.stderr, flush=True)
+
+        # Check if reference audio is an absolute path (custom voice) or relative path (built-in voice)
+        ref_audio_path = voice_config["ref_audio"]
+        if Path(ref_audio_path).is_absolute():
+            # Custom voice - use absolute path directly
+            self.ref_audio_path = ref_audio_path
+        else:
+            # Built-in voice - relative to models_path
+            self.ref_audio_path = str(self.models_path / ref_audio_path)
+
         custom_config = {
             "device": self.device,
             "is_half": self.device != "cpu",
@@ -232,10 +242,9 @@ class StreamingMoYoYoTTSWrapper:
             self.tts = TTS(config_dict)
             print(f"DEBUG [Wrapper._init_tts]: TTS instance created: {self.tts is not None}", file=sys.stderr, flush=True)
             
-            # Store reference audio info
-            self.ref_audio_path = str(self.models_path / voice_config["ref_audio"])
+            # Store prompt text (ref_audio_path already set above)
             self.prompt_text = voice_config["prompt_text"]
-            
+
             self.log("INFO", f"Reference audio: {self.ref_audio_path}")
             if not Path(self.ref_audio_path).exists():
                 self.log("ERROR", f"Reference audio does not exist: {self.ref_audio_path}")

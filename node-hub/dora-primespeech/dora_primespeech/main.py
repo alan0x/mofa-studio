@@ -295,28 +295,56 @@ def main():
                     raw_text = raw_data
                 
                 # Parse VOICE: prefix for dynamic voice switching
-                # Format: "VOICE:voice_name|actual_text"
+                # Format 1 (built-in): "VOICE:voice_name|actual_text"
+                # Format 2 (custom):   "VOICE:CUSTOM|ref_audio_path|prompt_text|language|actual_text"
                 current_voice_name = voice_name  # Default to initial voice
                 text = raw_text
-                
+                custom_voice_config = None  # For custom voices
+
                 if raw_text.startswith("VOICE:"):
                     try:
-                        parts = raw_text.split("|", 1)
-                        if len(parts) == 2:
-                            voice_prefix = parts[0][6:].strip()  # Remove "VOICE:" prefix and trim whitespace
-                            text = parts[1]
-                            
-                            print(f"DEBUG: Parsed VOICE - name: '{voice_prefix}', text: '{text}'", file=sys.stderr, flush=True)
-                            send_log(node, "DEBUG", f"Parsed VOICE prefix: '{voice_prefix}', text: '{text[:50]}...'", config.LOG_LEVEL)
-                            
-                            # Check if voice exists
-                            if voice_prefix in VOICE_CONFIGS:
-                                current_voice_name = voice_prefix
-                                send_log(node, "INFO", f"Switching to voice: {current_voice_name}", config.LOG_LEVEL)
+                        # Check for custom voice format
+                        if raw_text.startswith("VOICE:CUSTOM|"):
+                            # Parse custom voice format: VOICE:CUSTOM|ref_audio|prompt_text|language|text
+                            parts = raw_text[13:].split("|", 3)  # Remove "VOICE:CUSTOM|" and split into 4 parts
+                            if len(parts) == 4:
+                                ref_audio_path, prompt_text, lang, text = parts
+                                print(f"DEBUG: Parsed CUSTOM VOICE - ref_audio: '{ref_audio_path}', prompt: '{prompt_text[:30]}...', lang: '{lang}'", file=sys.stderr, flush=True)
+                                send_log(node, "INFO", f"Using custom voice with ref audio: {ref_audio_path}", config.LOG_LEVEL)
+
+                                # Create custom voice config using default model weights
+                                # This enables zero-shot voice cloning with user's reference audio
+                                custom_voice_config = {
+                                    "repository": "MoYoYoTech/tone-models",
+                                    "gpt_weights": "GPT_weights/doubao-mixed.ckpt",  # Use default GPT weights
+                                    "sovits_weights": "SoVITS_weights/doubao-mixed.pth",  # Use default SoVITS weights
+                                    "reference_audio": ref_audio_path,  # User's reference audio (absolute path)
+                                    "prompt_text": prompt_text,  # User's prompt text
+                                    "text_lang": lang if lang in ["zh", "en", "ja", "auto"] else "auto",
+                                    "prompt_lang": lang if lang in ["zh", "en", "ja", "auto"] else "auto",
+                                    "speed_factor": 1.1,
+                                }
+                                current_voice_name = "CUSTOM"
                             else:
-                                send_log(node, "WARNING", f"Unknown voice '{voice_prefix}', using default: {voice_name}. Available: {list(VOICE_CONFIGS.keys())}", config.LOG_LEVEL)
+                                send_log(node, "WARNING", f"Invalid CUSTOM voice format (expected 4 parts), got {len(parts)}: {raw_text[:100]}", config.LOG_LEVEL)
                         else:
-                            send_log(node, "WARNING", f"Invalid VOICE: format (expected 'VOICE:name|text'), got: {raw_text[:100]}", config.LOG_LEVEL)
+                            # Parse built-in voice format: VOICE:voice_name|text
+                            parts = raw_text.split("|", 1)
+                            if len(parts) == 2:
+                                voice_prefix = parts[0][6:].strip()  # Remove "VOICE:" prefix and trim whitespace
+                                text = parts[1]
+
+                                print(f"DEBUG: Parsed VOICE - name: '{voice_prefix}', text: '{text}'", file=sys.stderr, flush=True)
+                                send_log(node, "DEBUG", f"Parsed VOICE prefix: '{voice_prefix}', text: '{text[:50]}...'", config.LOG_LEVEL)
+
+                                # Check if voice exists
+                                if voice_prefix in VOICE_CONFIGS:
+                                    current_voice_name = voice_prefix
+                                    send_log(node, "INFO", f"Switching to voice: {current_voice_name}", config.LOG_LEVEL)
+                                else:
+                                    send_log(node, "WARNING", f"Unknown voice '{voice_prefix}', using default: {voice_name}. Available: {list(VOICE_CONFIGS.keys())}", config.LOG_LEVEL)
+                            else:
+                                send_log(node, "WARNING", f"Invalid VOICE: format (expected 'VOICE:name|text'), got: {raw_text[:100]}", config.LOG_LEVEL)
                     except Exception as e:
                         send_log(node, "WARNING", f"Failed to parse VOICE: prefix: {e}, using raw text", config.LOG_LEVEL)
 
@@ -376,19 +404,25 @@ def main():
 
                     # Validate models directory early so failures are visible
                     _validate_models_path(lambda lvl, msg: send_log(node, lvl, msg, config.LOG_LEVEL))
-                    
+
                     # Get voice config for current voice
-                    if current_voice_name not in VOICE_CONFIGS:
+                    if custom_voice_config is not None:
+                        # Use custom voice config (zero-shot cloning with user's reference audio)
+                        current_voice_config = custom_voice_config.copy()
+                        send_log(node, "INFO", f"Using custom voice config with ref audio: {current_voice_config.get('reference_audio', 'N/A')}", config.LOG_LEVEL)
+                    elif current_voice_name not in VOICE_CONFIGS:
                         send_log(node, "WARNING", f"Voice {current_voice_name} not found, using default: {voice_name}", config.LOG_LEVEL)
                         current_voice_name = voice_name
-                    
-                    current_voice_config = VOICE_CONFIGS[current_voice_name].copy()
+                        current_voice_config = VOICE_CONFIGS[current_voice_name].copy()
+                    else:
+                        current_voice_config = VOICE_CONFIGS[current_voice_name].copy()
+
                     # Apply overrides from main voice_config
-                    for key in ["text_lang", "prompt_lang", "top_k", "top_p", "temperature", 
+                    for key in ["text_lang", "prompt_lang", "top_k", "top_p", "temperature",
                                "speed_factor", "batch_size", "seed", "text_split_method",
-                               "split_bucket", "return_fragment", "use_gpu", "device", 
+                               "split_bucket", "return_fragment", "use_gpu", "device",
                                "sample_rate", "fragment_interval"]:
-                        if key in voice_config:
+                        if key in voice_config and key not in current_voice_config:
                             current_voice_config[key] = voice_config[key]
 
                     try:
