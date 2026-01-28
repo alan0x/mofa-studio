@@ -104,19 +104,50 @@ fi
 
 # Install Dora CLI
 print_header "Installing Dora CLI"
-if command -v dora &> /dev/null; then
-    current_version=$(dora --version 2>&1 | grep -oP '\d+\.\d+\.\d+' || echo "unknown")
-    print_info "Dora CLI is already installed (version: $current_version)"
-    read -p "Do you want to reinstall/update Dora CLI? (y/n): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        cargo install dora-cli --version 0.3.12 --locked --force
-        print_success "Dora CLI updated"
+DORA_VERSION="0.3.12"
+
+# Remove all non-cargo dora installations (except nix symlinks)
+dora_locations=$(type -a dora 2>/dev/null | awk '{print $NF}' || true)
+if [[ -n "$dora_locations" ]]; then
+    print_info "Checking existing dora installation(s)..."
+
+    # Remove pip-installed dora-rs-cli if present
+    if pip show dora-rs-cli &> /dev/null; then
+        print_info "Removing pip-installed dora-rs-cli..."
+        pip uninstall -y dora-rs-cli || true
+    fi
+
+    # Remove all non-cargo dora binaries (skip nix symlinks)
+    while IFS= read -r dora_path; do
+        [[ -z "$dora_path" ]] && continue
+        [[ "$dora_path" == *"/.cargo/bin/"* ]] && continue
+
+        # Skip nix symlinks
+        if [[ -L "$dora_path" ]] && [[ "$(readlink "$dora_path")" == /nix/* ]]; then
+            print_info "Skipping nix symlink: $dora_path"
+            continue
+        fi
+
+        print_info "Removing non-cargo dora: $dora_path"
+        rm -f "$dora_path" 2>/dev/null && print_success "Removed $dora_path" || print_error "Failed to remove $dora_path"
+    done <<< "$dora_locations"
+fi
+
+# Always ensure cargo-installed dora at correct version
+cargo_dora="$HOME/.cargo/bin/dora"
+if [[ -f "$cargo_dora" ]]; then
+    current_version=$("$cargo_dora" --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "unknown")
+    if [[ "$current_version" == "$DORA_VERSION" ]]; then
+        print_success "Dora CLI (cargo) is at target version $DORA_VERSION"
+    else
+        print_info "Updating Dora CLI: $current_version -> $DORA_VERSION"
+        cargo install dora-cli --version "$DORA_VERSION" --locked --force
+        print_success "Dora CLI updated to $DORA_VERSION"
     fi
 else
-    print_info "Installing Dora CLI..."
-    cargo install dora-cli --version 0.3.12 --locked
-    print_success "Dora CLI installed"
+    print_info "Installing Dora CLI via cargo..."
+    cargo install dora-cli --version "$DORA_VERSION" --locked
+    print_success "Dora CLI installed ($DORA_VERSION)"
 fi
 
 # Build Rust-based nodes
