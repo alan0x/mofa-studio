@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 makepad-widgets.workspace = true
 mofa-widgets = { path = "../../mofa-widgets" }
+mofa-ui = { path = "../../mofa-ui" }
 parking_lot.workspace = true
 serde.workspace = true
 serde_json.workspace = true
